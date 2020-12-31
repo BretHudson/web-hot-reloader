@@ -21,11 +21,8 @@ const io = socketio(server);
 const publicPath = path.join(__dirname, '../public');
 app.use(express.static(publicPath));
 
-let _client;
 io.on('connection', client => {
 	console.log('connect');
-	
-	_client = client;
 	
 	client.on('event', data => {
 		console.log('event');
