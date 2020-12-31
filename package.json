@@ -10,7 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "express": "4.17.1",
-    "socket.io": "2.3.0",
-    "throttle-debounce": "2.2.1"
+    "md5": "2.3.0",
+    "socket.io": "2.3.0"
   }
 }

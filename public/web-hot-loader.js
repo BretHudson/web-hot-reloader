@@ -1,6 +1,6 @@
-const updateCSS = filename => {
+const updateCSS = fileName => {
 	// TODO(bret): At some point, set it up to just update the CSS that it needs to...
-	const cssElem = document.querySelector(`link[href*="${filename}"]`);
+	const cssElem = document.querySelector(`link[href*="${fileName}"]`);
 	const random = Math.floor(Math.random() * 1000000);
 	
 	const newCSS = document.createElement('link');
@@ -22,8 +22,8 @@ const initWebsocket = () => {
 	});
 	
 	socket.on('css-update', data => {
-		const { filename } = data;
-		updateCSS(filename);
+		const { fileName } = data;
+		updateCSS(fileName);
 	});
 	
 	socket.on('disconnect', () => {

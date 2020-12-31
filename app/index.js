@@ -1,9 +1,9 @@
 const express = require('express');
 const fs = require('fs');
 const http = require('http');
+const md5 = require('md5');
 const path = require('path');
 const socketio = require('socket.io');
-const { debounce } = require('throttle-debounce');
 
 const {
 	PORT = 3008,
@@ -36,14 +36,28 @@ io.on('connection', client => {
 	});
 });
 
-const sendMessageCSSUpdate = debounce(1000, false, (eventType, filename) => {
-	io.sockets.emit('css-update', { filename });
-	console.log(`sent message for ${filename} (${eventType})`);
-});
+const sendMessageCSSUpdate = (eventType, fileName) => {
+	io.sockets.emit('css-update', { fileName });
+	console.log(`sent message for ${fileName} (${eventType})`);
+};
 
-fs.watch(watchPath, (eventType, filename) => {
-	if (filename.endsWith('.css')) {
-		sendMessageCSSUpdate(eventType, filename);
+const checksumMap = new Map();
+const haveFileContentsUpdated = (filePath, fileContents) => {
+	const checksum = md5(fileContents);
+	if (checksum === checksumMap.get(filePath))
+		return false;
+	checksumMap.set(filePath, checksum);
+	return true;
+};
+
+fs.watch(watchPath, (eventType, fileName) => {
+	if (fileName?.endsWith('.css')) {
+		const filePath = path.join(watchPath, fileName);
+		
+		fs.readFile(filePath, (err, data) => {
+			if (haveFileContentsUpdated(filePath, data) === false) return;
+			sendMessageCSSUpdate(eventType, fileName);
+		});
 	}
 });
 
