@@ -1,7 +1,9 @@
 const updateCSS = fileName => {
 	// TODO(bret): At some point, set it up to just update the CSS that it needs to...
-	const cssElem = document.querySelector(`link[href*="${fileName}"]`);
+	const cssElems = document.querySelectorAll(`link[href*="${fileName}"]`);
 	const random = Math.floor(Math.random() * 1000000);
+	
+	const [cssElem] = cssElems;
 	
 	const newCSS = document.createElement('link');
 	newCSS.rel = cssElem.rel;
@@ -9,7 +11,7 @@ const updateCSS = fileName => {
 	newCSS.type = cssElem.type;
 	newCSS.href = cssElem.href.split('?')[0] + '?' + random;
 	newCSS.onload = () => {
-		cssElem.remove();
+		[...cssElems].forEach(cssElem => cssElem.remove());
 	};
 	document.head.appendChild(newCSS);
 };
