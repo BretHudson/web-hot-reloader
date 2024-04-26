@@ -1,3 +1,6 @@
+const [a, b] = window.location.origin.split(':');
+const origin = [a, b, 3008].join(':');
+
 const updateCSS = fileName => {
 	// TODO(bret): At some point, set it up to just update the CSS that it needs to...
 	const cssElems = document.querySelectorAll(`link[href*="${fileName}"]`);
@@ -17,7 +20,7 @@ const updateCSS = fileName => {
 };
 
 const initWebsocket = () => {
-	const socket = io('http://localhost:3008');
+	const socket = io(origin);
 	
 	socket.on('connect', () => {
 		console.log('Socket connected');
@@ -36,7 +39,7 @@ const initWebsocket = () => {
 };
 
 const init = () => {
-	const scriptSrc = 'http://localhost:3008/socket.io/socket.io.js';
+	const scriptSrc = `${origin}/socket.io/socket.io.js`;
 	const scriptElem = document.createElement('script');
 	scriptElem.onload = e => {
 		initWebsocket();
