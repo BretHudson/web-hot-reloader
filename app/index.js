@@ -22,20 +22,16 @@ const publicPath = path.join(__dirname, '../public');
 app.use(express.static(publicPath));
 
 io.on('connection', client => {
-	console.log('connect');
-	
-	client.on('event', data => {
-		console.log('event');
-	});
+	console.log(`connect\t\tid: ${client.id}`);
 
 	client.on('disconnect', () => {
-		console.log('disconnect');
+		console.log(`disconnect\tid: ${client.id}`);
 	});
 });
 
 const sendMessageCSSUpdate = (eventType, fileName) => {
 	io.sockets.emit('css-update', { fileName });
-	console.log(`sent message for ${fileName} (${eventType})`);
+	console.log(`${fileName} update emited (eventType: ${eventType})`);
 };
 
 const checksumMap = new Map();
