@@ -1,4 +1,4 @@
-# Web Hot Loader
+# Web Hot Reloader
 
 Automatically update your CSS in real-time, without having to add a single line of code to your project's codebase.
 
@@ -12,7 +12,7 @@ Automatically update your CSS in real-time, without having to add a single line 
 
 Frameworks like [React](https://github.com/facebook/react) have spoiled us with features like HMR (hot module reload), reducing developer friction when making small, incremental changes. Wouldn't it be nice to have a lightweight solution for vanilla JS projects, without having to use a framework?
 
-And so, Web Hot Loader was born. It consists of two parts: a Node.js process that lists to a directory for CSS file changes, and a script to inject websocket code into your web page.
+And so, Web Hot Reloader was born. It consists of two parts: a Node.js process that lists to a directory for CSS file changes, and a script to inject websocket code into your web page.
 
 ## Setup
 
@@ -27,7 +27,7 @@ Prerequisites:
 
 In my project, there is a `/css` folder containing all the CSS files. (See: [Current limitations](#current-limitations))
 
-To initialize the hot loader for this directory, we can type the following:
+To initialize the hot reloader for this directory, we can type the following:
 
 ```cmd
 node app C:\xampp\app\brethudson\css
@@ -37,7 +37,7 @@ Tip: You can override `PORT` (default `3008`) and `NODE_ENV` (default `productio
 
 ### Getting your browser to listen
 
-Now, while you _could_ copy/paste [public/web-hot-loader.js](public/web-hot-loader.js) into your project and include it in every page that you want to use it on, that doesn't scale well, and also means that you would need to ensure it gets removed for the production/live site.
+Now, while you _could_ copy/paste [public/reloader.js](public/reloader.js) into your project and include it in every page that you want to use it on, that doesn't scale well, and also means that you would need to ensure it gets removed for the production/live site.
 
 What I suggest is grabbing a browser extension such as [Tampermonkey](https://www.tampermonkey.net/), which will allow us to run scripts on certain pages!
 
@@ -48,16 +48,16 @@ What I suggest is grabbing a browser extension such as [Tampermonkey](https://ww
 // @name         CSS Hotloader Injection
 // @namespace    http://tampermonkey.net/
 // @version      0.2.0
-// @description  Hot Web Loader
+// @description  Hot Web Reloader
 // @author       Bret Hudson
 // @match        http://brethudson.localhost/*
 // @grant        none
-// @contributionURL https://github.com/BretHudson
+// @contributionURL https://github.com/BretHudson/web-hot-reloader
 // ==/UserScript==
 (function () {
 	'use strict';
 
-	const jsSrc = 'http://localhost:3008/web-hot-loader.js';
+	const jsSrc = 'http://localhost:3008/reloader.js';
 	const scriptElem = document.createElement('script');
 	scriptElem.src = jsSrc;
 	document.head.appendChild(scriptElem);
@@ -77,6 +77,7 @@ Every `@match` line will correspond to a URL path to match. For me, my project l
 There really aren't any specific ones! Some things I would like to add:
 
 - Recursive listening (`C:/project/css` would be able to listen to `C:/project/css/sub-folder` as well - meaning it would be possible to just use `C:/project` as the directory)
+- <img> support
 - JS support
 - Project configuration files (`reloader.json` or `reloader.config.js`)
 - Publish to `npm`
