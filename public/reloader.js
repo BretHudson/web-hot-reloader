@@ -1,5 +1,7 @@
-const [a, b] = window.location.origin.split(':');
-const origin = [a, b, 3008].join(':');
+const _origin = window.location.port
+	? window.location.origin.replace(`:${window.location.port}`)
+	: window.location.origin;
+const origin = `${_origin}:${3008}`;
 
 const updateCSS = fileName => {
 	// TODO(bret): At some point, set it up to just update the CSS that it needs to...

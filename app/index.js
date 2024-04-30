@@ -4,8 +4,10 @@ const md5 = require('md5');
 const path = require('path');
 const socketio = require('socket.io');
 
+const DEFAULT_PORT = 3008;
+
 const {
-	PORT = 3008,
+	PORT = DEFAULT_PORT,
 	NODE_ENV = 'production'
 } = process.env;
 
@@ -28,7 +30,8 @@ const server = http.createServer((req, res) => {
 		fs.readFile(filePath, 'utf8', (err, data) => {
 			if (err) return showError();
 			res.writeHead(200, { 'Content-Type': contentType });
-			res.end(data, 'utf-8');
+			const content = data.replace(DEFAULT_PORT, PORT);
+			res.end(content, 'utf-8');
 		});
 	} else {
 		showError();
