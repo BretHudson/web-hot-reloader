@@ -1,4 +1,3 @@
-const express = require('express');
 const fs = require('fs');
 const http = require('http');
 const md5 = require('md5');
@@ -14,12 +13,28 @@ const [_nodePath, _scriptPath, ...args] = process.argv;
 
 const [watchPath] = args;
 
-const app = express();
-const server = http.createServer(app);
-const io = socketio(server);
-
 const publicPath = path.join(__dirname, '../public');
-app.use(express.static(publicPath));
+const server = http.createServer((req, res) => {
+	let contentType = 'text/html';
+	
+	const showError = () => {
+		res.writeHead(404, { 'Content-Type': contentType });
+		res.end(undefined, 'utf-8');
+	};
+
+	const filePath = path.join(publicPath, req.url);
+	if (fs.existsSync(filePath)) {
+		contentType = 'text/javascript';
+		fs.readFile(filePath, 'utf8', (err, data) => {
+			if (err) return showError();
+			res.writeHead(200, { 'Content-Type': contentType });
+			res.end(data, 'utf-8');
+		});
+	} else {
+		showError();
+	}
+});
+const io = socketio(server);
 
 io.on('connection', client => {
 	console.log(`connect\t\tid: ${client.id}`);
