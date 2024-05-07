@@ -1,5 +1,5 @@
 const _origin = window.location.port
-	? window.location.origin.replace(`:${window.location.port}`)
+	? window.location.origin.replace(`:${window.location.port}`, '')
 	: window.location.origin;
 const origin = `${_origin}:${3008}`;
 
