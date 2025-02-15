@@ -17,6 +17,8 @@ const [watchPath] = args;
 
 const publicPath = path.join(__dirname, '../public');
 const server = http.createServer((req, res) => {
+	res.setHeader('Access-Control-Allow-Origin', '*'); 
+	
 	let contentType = 'text/html';
 	
 	const showError = () => {
@@ -24,7 +26,7 @@ const server = http.createServer((req, res) => {
 		res.end(undefined, 'utf-8');
 	};
 
-	const filePath = path.join(publicPath, req.url);
+	const filePath = path.join(publicPath, req.url).split('?')[0];
 	if (fs.existsSync(filePath)) {
 		contentType = 'text/javascript';
 		fs.readFile(filePath, 'utf8', (err, data) => {
@@ -39,8 +41,11 @@ const server = http.createServer((req, res) => {
 });
 const io = socketio(server);
 
+let lastJsUpdate = Date.now();
 io.on('connection', client => {
 	console.log(`connect\t\tid: ${client.id}`);
+	
+	client.emit('reload-self', { lastJsUpdate });
 
 	client.on('disconnect', () => {
 		console.log(`disconnect\tid: ${client.id}`);
@@ -60,6 +65,17 @@ const haveFileContentsUpdated = (filePath, fileContents) => {
 	checksumMap.set(filePath, checksum);
 	return true;
 };
+
+// for dev only
+const clientJsPath = path.join(publicPath, 'reloader.js');
+fs.watchFile(clientJsPath, { interval: 1000 }, () => {
+	console.log('js updated');
+	fs.readFile(clientJsPath, (err, data) => {
+		if (haveFileContentsUpdated(clientJsPath, data) === false) return;
+		lastJsUpdate = Date.now();
+		io.sockets.emit('reload-self', { lastJsUpdate });
+	});
+});
 
 fs.watch(watchPath, (eventType, fileName) => {
 	if (fileName?.endsWith('.css')) {
