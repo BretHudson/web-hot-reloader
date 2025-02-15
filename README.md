@@ -47,7 +47,7 @@ What I suggest is grabbing a browser extension such as [Tampermonkey](https://ww
 // ==UserScript==
 // @name         CSS Hotloader Injection
 // @namespace    http://tampermonkey.net/
-// @version      0.2.0
+// @version      0.4.0
 // @description  Hot Web Reloader
 // @author       Bret Hudson
 // @match        http://brethudson.localhost/*
@@ -59,6 +59,8 @@ What I suggest is grabbing a browser extension such as [Tampermonkey](https://ww
 
 	const jsSrc = 'http://localhost:3008/reloader.js';
 	const scriptElem = document.createElement('script');
+	scriptElem.id = '__web-hot-reloader';
+	scriptElem.setAttribute('type', 'module');
 	scriptElem.src = jsSrc;
 	document.head.appendChild(scriptElem);
 })();
