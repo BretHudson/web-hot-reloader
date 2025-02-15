@@ -41,32 +41,9 @@ Now, while you _could_ copy/paste [public/reloader.js](public/reloader.js) into 
 
 What I suggest is grabbing a browser extension such as [Tampermonkey](https://www.tampermonkey.net/), which will allow us to run scripts on certain pages!
 
-[Create a new userscript](https://www.tampermonkey.net/faq.php?locale=en#Q102) and copy/paste the following into it:
+[Click to Install UserScript](https://raw.githubusercontent.com/BretHudson/web-hot-reloader/refs/heads/main/misc/reload-tampermonkey.user.js) ([Source Code](https://github.com/BretHudson/web-hot-reloader/blob/main/misc/reload-tampermonkey.user.js))
 
-```js
-// ==UserScript==
-// @name         CSS Hotloader Injection
-// @namespace    http://tampermonkey.net/
-// @version      0.4.0
-// @description  Hot Web Reloader
-// @author       Bret Hudson
-// @match        http://brethudson.localhost/*
-// @grant        none
-// @contributionURL https://github.com/BretHudson/web-hot-reloader
-// ==/UserScript==
-(function () {
-	'use strict';
-
-	const jsSrc = 'http://localhost:3008/reloader.js';
-	const scriptElem = document.createElement('script');
-	scriptElem.id = '__web-hot-reloader';
-	scriptElem.setAttribute('type', 'module');
-	scriptElem.src = jsSrc;
-	document.head.appendChild(scriptElem);
-})();
-```
-
-Every `@match` line will correspond to a URL path to match. For me, my project loads at `brethudson.localhost`. You can add as many of these as you want! In fact, I add a new line for each project. You could also match `https://localhost*` to capture all `localhost` activity to enable the hot reloading on all projects served on your computer.
+Within this file, every `@match` line will correspond to a URL path to match. For me, my project loads at `brethudson.localhost`. You can add as many of these as you want! In fact, I add a new line for each project. You could also match `https://localhost*` to capture all `localhost` activity to enable the hot reloading on all projects served on your computer.
 
 ## Current limitations
 
