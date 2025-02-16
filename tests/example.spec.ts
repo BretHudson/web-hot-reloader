@@ -21,11 +21,9 @@ const updateCSS = async (
 	const cssContents = await fs.promises.readFile(cssPath, 'utf-8');
 
 	const evaluate = page.evaluate(() => {
-		console.log('yo we evaluating');
 		return new Promise<{ eventName: string; data: {} }>((resolve) => {
 			// Assuming the page has already created a `socket` instance
 			const _window = window as typeof window & { '__whr-socket': any };
-			console.log(_window['__whr-socket']);
 			_window['__whr-socket'].onAny((eventName, data) => {
 				return resolve({ eventName, data });
 			});
@@ -44,7 +42,6 @@ const updateCSS = async (
 			fileName: `${tempDir}\\test-0\\styles.css`,
 		},
 	});
-	console.log(JSON.stringify(payload));
 
 	// TODO(bret): wait for websocket event
 	await new Promise<void>((resolve) => setTimeout(() => resolve(), 1e3));
@@ -60,7 +57,6 @@ test('has title', async ({ page, serverFilePath }) => {
 	const body = page.locator('body');
 	{
 		const bgColor = await body.evaluate((b) => {
-			console.log({ b });
 			return window.getComputedStyle(b).getPropertyValue('background-color');
 		});
 		expect(bgColor).toEqual('rgb(255, 0, 0)');
@@ -75,6 +71,7 @@ test('has title', async ({ page, serverFilePath }) => {
 		expect(bgColor).toEqual('rgb(0, 0, 255)');
 	}
 });
+
 // test('has title 2', async ({ page, serverFilePath }) => {
 // 	console.log({ ay: 2, serverFilePath });
 // 	// expect(serverFilePath.value).toEqual('some data2');
