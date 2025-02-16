@@ -6,10 +6,7 @@ const socketio = require('socket.io');
 
 const DEFAULT_PORT = 3008;
 
-const {
-	PORT = DEFAULT_PORT,
-	NODE_ENV = 'production'
-} = process.env;
+const { PORT = DEFAULT_PORT, NODE_ENV = 'production' } = process.env;
 
 const [_nodePath, _scriptPath, ...args] = process.argv;
 
@@ -17,10 +14,10 @@ const [watchPath] = args;
 
 const publicPath = path.join(__dirname, '../public');
 const server = http.createServer((req, res) => {
-	res.setHeader('Access-Control-Allow-Origin', '*'); 
-	
+	res.setHeader('Access-Control-Allow-Origin', '*');
+
 	let contentType = 'text/html';
-	
+
 	const showError = () => {
 		res.writeHead(404, { 'Content-Type': contentType });
 		res.end(undefined, 'utf-8');
@@ -42,9 +39,9 @@ const server = http.createServer((req, res) => {
 const io = socketio(server);
 
 let lastJsUpdate = Date.now();
-io.on('connection', client => {
+io.on('connection', (client) => {
 	console.log(`connect\t\tid: ${client.id}`);
-	
+
 	client.emit('reload-self', { lastJsUpdate });
 
 	client.on('disconnect', () => {
@@ -60,8 +57,7 @@ const sendMessageCSSUpdate = (eventType, fileName) => {
 const checksumMap = new Map();
 const haveFileContentsUpdated = (filePath, fileContents) => {
 	const checksum = md5(fileContents);
-	if (checksum === checksumMap.get(filePath))
-		return false;
+	if (checksum === checksumMap.get(filePath)) return false;
 	checksumMap.set(filePath, checksum);
 	return true;
 };
@@ -80,7 +76,7 @@ fs.watchFile(clientJsPath, { interval: 1000 }, () => {
 fs.watch(watchPath, (eventType, fileName) => {
 	if (fileName?.endsWith('.css')) {
 		const filePath = path.join(watchPath, fileName);
-		
+
 		fs.readFile(filePath, (err, data) => {
 			if (haveFileContentsUpdated(filePath, data) === false) return;
 			sendMessageCSSUpdate(eventType, fileName);
