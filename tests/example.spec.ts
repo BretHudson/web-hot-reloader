@@ -12,6 +12,14 @@ test.beforeEach(async ({ serverFilePath }) => {
 	});
 });
 
+const expectBgColor = async (page: Page) => {
+	const body = page.locator('body');
+	const bgColor = await body.evaluate((b) => {
+		return window.getComputedStyle(b).getPropertyValue('background-color');
+	});
+	return bgColor;
+};
+
 const waitForWebSocketEvent = (page: Page) => {
 	return page.evaluate(() => {
 		return new Promise<{ eventName: string; data: {} }>((resolve) => {
@@ -77,23 +85,9 @@ const updateHTML = async (
 
 test('edit CSS', async ({ page, serverFilePath }) => {
 	await page.goto(serverFilePath.url);
-
-	const body = page.locator('body');
-	{
-		const bgColor = await body.evaluate((b) => {
-			return window.getComputedStyle(b).getPropertyValue('background-color');
-		});
-		expect(bgColor).toEqual('rgb(255, 0, 0)');
-	}
-
+	expect(await expectBgColor(page)).toEqual('rgb(255, 0, 0)');
 	await updateCSS(page, serverFilePath);
-
-	{
-		const bgColor = await body.evaluate((b) => {
-			return window.getComputedStyle(b).getPropertyValue('background-color');
-		});
-		expect(bgColor).toEqual('rgb(0, 0, 255)');
-	}
+	expect(await expectBgColor(page)).toEqual('rgb(0, 0, 255)');
 });
 
 test('edit HTML', async ({ page, serverFilePath }) => {
@@ -101,6 +95,21 @@ test('edit HTML', async ({ page, serverFilePath }) => {
 	await expect(page).toHaveTitle(/My Site/);
 	await updateHTML(page, serverFilePath);
 	await expect(page).toHaveTitle(/My Cool Site/);
+});
+
+test('edit CSS then HTML', async ({ page, serverFilePath }) => {
+	await page.goto(serverFilePath.url);
+
+	expect(await expectBgColor(page)).toEqual('rgb(255, 0, 0)');
+	await updateCSS(page, serverFilePath);
+	expect(await expectBgColor(page)).toEqual('rgb(0, 0, 255)');
+
+	await expect(page).toHaveTitle(/My Site/);
+	await updateHTML(page, serverFilePath);
+	await expect(page).toHaveTitle(/My Cool Site/);
+
+	// the background color should NOT be reset!
+	expect(await expectBgColor(page)).toEqual('rgb(0, 0, 255)');
 });
 
 // test('has title 2', async ({ page, serverFilePath }) => {
