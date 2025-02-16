@@ -9,8 +9,6 @@ const queryKey = '_whr';
 const getCacheBust = () => `?${queryKey}=${Date.now().toString(36)}`;
 
 const updateCSS = (fileName) => {
-	fileName = fileName.replaceAll('\\', '/');
-
 	// TODO(bret): At some point, set it up to just update the CSS that it needs to...
 	const cssElems = [...document.querySelectorAll(`link`)].filter((link) =>
 		link.href.endsWith(fileName),

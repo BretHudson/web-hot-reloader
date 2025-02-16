@@ -86,6 +86,8 @@ fs.watchFile(clientJsPath, { interval: 1000 }, () => {
 
 // TODO(bret): Do not commit recursive!!!
 fs.watch(watchPath, { recursive: true }, (eventType, fileName) => {
+	fileName = fileName.replaceAll(path.sep, '/');
+
 	if (fileName?.endsWith('.css')) {
 		const filePath = path.join(watchPath, fileName);
 

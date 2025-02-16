@@ -39,7 +39,7 @@ const updateCSS = async (
 	expect(payload).toEqual({
 		eventName: 'css-update',
 		data: {
-			fileName: `${tempDir}\\test-0\\styles.css`,
+			fileName: `${tempDir}/test-0/styles.css`,
 		},
 	});
 
