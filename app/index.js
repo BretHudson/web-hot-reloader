@@ -63,10 +63,9 @@ const sendMessageCSSUpdate = (eventType, fileName) => {
 
 const checksumMap = new Map();
 const haveFileContentsUpdated = (filePath, fileContents) => {
-	const checksum = crypto
-		.createHash('sha256')
-		.update(fileContents, 'utf-8')
-		.digest('hex');
+	const checksum =
+		fileContents &&
+		crypto.createHash('sha256').update(fileContents, 'utf-8').digest('hex');
 	if (checksum === checksumMap.get(filePath)) return false;
 	checksumMap.set(filePath, checksum);
 	return true;
