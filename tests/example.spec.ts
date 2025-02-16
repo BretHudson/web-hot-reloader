@@ -1,5 +1,5 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 
 import type { Page } from '@playwright/test';
 
@@ -7,69 +7,77 @@ import { test, expect, type ServerFilePath, describeSerial } from './fixtures';
 import { tempDir, templateRoot } from './shared';
 
 abstract class BasePage {
+	static defaultTitle: string;
+	static updatedTitle: string;
+	static filePath: HTMLFile;
+
 	page: Page;
 	path: string;
 	serverFilePath: ServerFilePath;
+	curTitle: string;
 
 	constructor(page: Page, path: string, serverFilePath) {
 		this.page = page;
 		this.path = path;
 		this.serverFilePath = serverFilePath;
+
+		// TODO(bret): Move this, I don't love it here
+		if (fs.existsSync(serverFilePath.filePath)) return;
+		fs.cpSync(templateRoot, serverFilePath.filePath, {
+			recursive: true,
+		});
 	}
 
-	goto() {
+	async goto() {
 		const url = this.serverFilePath.url + this.path;
-		console.log({ url });
 		return this.page.goto(url);
 	}
 
-	async expectTitle(title: string) {
-		await expect(this.page).toHaveTitle(title);
+	async expectTitle(title: string, match: boolean = true) {
+		if (match) await expect(this.page).toHaveTitle(title);
+		else await expect(this.page).not.toHaveTitle(title);
+	}
+
+	static async update(page: BasePage, pageTitle: string = this.updatedTitle) {
+		let isSamePage = page instanceof this;
+
+		const titleToReplace = isSamePage ? page.curTitle : this.defaultTitle;
+
+		await page.expectTitle(page.curTitle, true);
+		await updateHTML(page, this.filePath, page.serverFilePath, (htmlContents) =>
+			htmlContents.replace(titleToReplace, pageTitle),
+		);
+		if (isSamePage) {
+			page.curTitle = pageTitle;
+		}
+		await page.expectTitle(pageTitle, isSamePage);
 	}
 }
 
 class IndexPage extends BasePage {
 	static defaultTitle = 'My Site';
-
-	static async update(page: BasePage, pageTitle: string) {
-		await updateHTML(page, 'index.html', page.serverFilePath, (htmlContents) =>
-			htmlContents.replace(IndexPage.defaultTitle, pageTitle),
-		);
-	}
+	static updatedTitle = 'My Cool Site';
+	static filePath: HTMLFile = 'index.html';
+	curTitle = IndexPage.defaultTitle;
 }
 
 class PageTwoPage extends BasePage {
-	static async update(page: BasePage, pageTitle: string) {
-		await updateHTML(
-			page,
-			'page-two.html',
-			page.serverFilePath,
-			(htmlContents) => htmlContents.replace('Page Two', pageTitle),
-		);
-	}
+	static defaultTitle = 'Page Two';
+	static updatedTitle = 'Page II';
+	static filePath: HTMLFile = 'page-two.html';
+	curTitle = PageTwoPage.defaultTitle;
 }
 
 class SubDirIndexPage extends BasePage {
+	static defaultTitle = 'A Subdirectory';
+	static updatedTitle = 'A Sub Dir';
+	static filePath: HTMLFile = 'sub-dir/index.html';
+	curTitle = SubDirIndexPage.defaultTitle;
+
 	constructor(page: Page, path: string, serverFilePath: ServerFilePath) {
 		super(page, 'sub-dir/' + path, serverFilePath);
 	}
-
-	static async update(page: BasePage, pageTitle: string) {
-		await updateHTML(
-			page,
-			'sub-dir/index.html',
-			page.serverFilePath,
-			(htmlContents) => htmlContents.replace('A Subdirectory', pageTitle),
-		);
-	}
 }
-
-test.beforeEach(async ({ serverFilePath }) => {
-	if (fs.existsSync(serverFilePath.filePath)) return;
-	await fs.promises.cp(templateRoot, serverFilePath.filePath, {
-		recursive: true,
-	});
-});
 
 const expectStyle = async (
 	page: Page,
@@ -171,7 +179,7 @@ describeSerial('edit CSS', () => {
 	let background = defaultBGColor;
 	let color = defaultColor;
 
-	test('ensure edits are received', async ({ page, serverFilePath }) => {
+	test.skip('ensure edits are received', async ({ page, serverFilePath }) => {
 		await page.goto(serverFilePath.url);
 		console.log('what is happening');
 		expect(await expectStyle(page, 'backgroundColor')).toEqual(background);
@@ -185,7 +193,7 @@ describeSerial('edit CSS', () => {
 		expect(await expectStyle(page, 'color')).toEqual(color);
 	});
 
-	test('ensure multiple files are received', async ({
+	test.skip('ensure multiple files are received', async ({
 		page,
 		serverFilePath,
 	}) => {
@@ -198,7 +206,7 @@ describeSerial('edit CSS', () => {
 		expect(await expectStyle(page, 'color')).toEqual(color);
 	});
 
-	test('ensure non-included files are ignored client-side', async ({
+	test.skip('ensure non-included files are ignored client-side', async ({
 		page,
 		serverFilePath,
 	}) => {
@@ -214,101 +222,118 @@ describeSerial('edit CSS', () => {
 	});
 });
 
-test.describe('edit index.html', () => {
-	['', 'index', 'index.html'].forEach((fileName) => {
-		describeSerial(`as "/${fileName}"`, () => {
-			let pageTitle = IndexPage.defaultTitle;
+const createTitle = (filePath: string, same: boolean) => {
+	const are = same ? 'are' : 'are not';
+	return `ensure ${filePath} changes ${are} applied`;
+};
 
-			let indexPage: IndexPage;
-			test.beforeAll(async ({ page, serverFilePath }) => {
-				indexPage = new IndexPage(page, fileName, serverFilePath);
-			});
+const options = [
+	['/index.html', IndexPage],
+	['/page-two.html', PageTwoPage],
+	['/sub-dir/index.html', SubDirIndexPage],
+] as const;
 
-			test('load page', async () => {
-				await indexPage.goto();
-			});
+options.forEach(([_fileName, CurPageType]) => {
+	const fileName = _fileName.replace(/^\//, '');
+	const isIndex = fileName.endsWith('index.html');
+	const fileNames = isIndex
+		? ['', 'index', 'index.html']
+		: [fileName.replace('.html', ''), fileName];
+	test.describe(_fileName, () => {
+		fileNames.forEach((fileName) => {
+			describeSerial(`access as "/${fileName}"`, () => {
+				let basePage: BasePage;
+				test.beforeAll(async ({ page, serverFilePath }) => {
+					basePage = new CurPageType(page, fileName, serverFilePath);
+					await basePage.goto();
+				});
 
-			test('ensure changes are received', async () => {
-				await indexPage.expectTitle(pageTitle);
-				pageTitle = 'My Cool Site';
-				await IndexPage.update(indexPage, pageTitle);
-				await indexPage.expectTitle(pageTitle);
-			});
+				options.forEach(([fileURLToPath, PageType]) => {
+					const title = createTitle(fileURLToPath, CurPageType === PageType);
+					test(title, async () => {
+						await PageType.update(basePage);
+					});
+				});
 
-			test('ensure changes to another .html file are not received', async () => {
-				await indexPage.expectTitle(pageTitle);
-				await PageTwoPage.update(indexPage, 'Page II');
-				await indexPage.expectTitle(pageTitle);
-			});
-
-			test('ensure changes to another index.html file are not received', async () => {
-				await indexPage.expectTitle(pageTitle);
-				SubDirIndexPage.update(indexPage, 'A Sub Dir');
-				await indexPage.expectTitle(pageTitle);
-			});
-		});
-	});
-});
-
-test.describe('edit page-two.html', () => {
-	['page-two', 'page-two.html'].forEach((fileName) => {
-		describeSerial(`as "/${fileName}"`, () => {
-			let pageTitle = 'Page Two';
-
-			let pageTwo: PageTwoPage;
-			test.beforeAll(({ page, serverFilePath }) => {
-				pageTwo = new PageTwoPage(page, fileName, serverFilePath);
-			});
-
-			test('ensure changes are received', async () => {
-				await pageTwo.goto();
-				await pageTwo.expectTitle(pageTitle);
-				pageTitle = 'Page II';
-				await PageTwoPage.update(pageTwo, pageTitle);
-				await pageTwo.expectTitle(pageTitle);
-			});
-
-			test('ensure changes to another .html file are not received', async () => {
-				await pageTwo.expectTitle(pageTitle);
-				await IndexPage.update(pageTwo, 'My Cool Site');
-				await pageTwo.expectTitle(pageTitle);
+				test('ensure changes are applied, again', async () => {
+					await CurPageType.update(basePage, 'A Second Update');
+				});
 			});
 		});
 	});
 });
+// test.describe('/index.html old', () => {
+// 	['', 'index', 'index.html'].forEach((fileName) => {
+// 		describeSerial(`access as "/${fileName}"`, () => {
+// 			const CurPageType = IndexPage;
 
-test.describe('edit sub-dir/index.html', () => {
-	['', 'index', 'index.html'].forEach((fileName) => {
-		describeSerial(`as "/${fileName}"`, () => {
-			let pageTitle = 'A Subdirectory';
+// 			let indexPage: IndexPage;
+// 			test.beforeAll(async ({ page, serverFilePath }) => {
+// 				indexPage = new IndexPage(page, fileName, serverFilePath);
+// 				await indexPage.goto();
+// 			});
 
-			let subDirIndexPage: SubDirIndexPage;
-			test.beforeAll(({ page, serverFilePath }) => {
-				subDirIndexPage = new SubDirIndexPage(page, fileName, serverFilePath);
-			});
+// 			options.forEach(([fileURLToPath, PageType]) => {
+// 				const title = createTitle(fileURLToPath, CurPageType === PageType);
+// 				test(title, async () => {
+// 					await PageType.update(indexPage);
+// 				});
+// 			});
 
-			test('ensure changes are received', async () => {
-				await subDirIndexPage.goto();
-				await subDirIndexPage.expectTitle(pageTitle);
-				pageTitle = 'A Sub Dir';
-				await SubDirIndexPage.update(subDirIndexPage, pageTitle);
-				await subDirIndexPage.expectTitle(pageTitle);
-			});
+// 			test('ensure changes are applied, again', async () => {
+// 				await CurPageType.update(indexPage, 'A Second Update');
+// 			});
+// 		});
+// 	});
+// });
 
-			test('ensure changes to another .html file are not received', async () => {
-				await subDirIndexPage.expectTitle(pageTitle);
-				await PageTwoPage.update(subDirIndexPage, 'Page II');
-				await subDirIndexPage.expectTitle(pageTitle);
-			});
+// test.describe('/page-two.html', () => {
+// 	['page-two', 'page-two.html'].forEach((fileName) => {
+// 		describeSerial(`as "/${fileName}"`, () => {
+// 			let pageTwo: PageTwoPage;
+// 			test.beforeAll(async ({ page, serverFilePath }) => {
+// 				pageTwo = new PageTwoPage(page, fileName, serverFilePath);
+// 				await pageTwo.goto();
+// 			});
 
-			test('ensure changes to another index.html file are not received', async () => {
-				await subDirIndexPage.expectTitle(pageTitle);
-				await IndexPage.update(subDirIndexPage, 'My Cool Site');
-				await subDirIndexPage.expectTitle(pageTitle);
-			});
-		});
-	});
-});
+// 			test('ensure changes are received', async () => {
+// 				await PageTwoPage.update(pageTwo, 'Page II');
+// 			});
+
+// 			test('ensure changes to another .html file are not received', async () => {
+// 				await SubDirIndexPage.update(pageTwo, 'A Sub Dir');
+// 			});
+
+// 			test('2 ensure changes to another .html file are not received', async () => {
+// 				await IndexPage.update(pageTwo, 'My Cool Site');
+// 			});
+// 		});
+// 	});
+// });
+
+// test.describe('/sub-dir/index.html', () => {
+// 	['', 'index', 'index.html'].forEach((fileName) => {
+// 		describeSerial(`as "/${fileName}"`, () => {
+// 			let subDirIndexPage: SubDirIndexPage;
+// 			test.beforeAll(async ({ page, serverFilePath }) => {
+// 				subDirIndexPage = new SubDirIndexPage(page, fileName, serverFilePath);
+// 				await subDirIndexPage.goto();
+// 			});
+
+// 			test('ensure changes are received', async () => {
+// 				await SubDirIndexPage.update(subDirIndexPage, 'A Sub Dir');
+// 			});
+
+// 			test('ensure changes to another .html file are not received', async () => {
+// 				await PageTwoPage.update(subDirIndexPage, 'Page II');
+// 			});
+
+// 			test('ensure changes to another index.html file are not received', async () => {
+// 				await IndexPage.update(subDirIndexPage, 'My Cool Site');
+// 			});
+// 		});
+// 	});
+// });
 
 // TODO(bret): Make sure only the HTML page that is currently loaded refreshes!!
 

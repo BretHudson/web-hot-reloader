@@ -1,7 +1,8 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { test as base, type Page } from '@playwright/test';
 
-import { tempRoot, SERVER_PORT, tempDir } from './shared';
+import { tempRoot, SERVER_PORT, tempDir, templateRoot } from './shared';
 
 export interface ServerFilePath {
 	path: string;
@@ -22,6 +23,13 @@ const constructServerFilePath = () => {
 		url: `http://localhost:${SERVER_PORT}/${tempDir}/${_path}/`,
 		filePath: path.join(tempRoot, _path),
 	};
+
+	// if (!fs.existsSync(data.filePath)) {
+	// 	fs.cpSync(templateRoot, data.filePath, {
+	// 		recursive: true,
+	// 	});
+	// }
+
 	return data;
 };
 
