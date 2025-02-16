@@ -37,6 +37,7 @@ const waitForWebSocketEvent = (page: Page, event: string) => {
 };
 
 type CSSFile = 'styles.css' | 'styles2.css' | 'styles3.css';
+type HTMLFile = 'index.html' | 'page-two.html';
 
 const updateCSS = async (
 	page: Page,
@@ -81,23 +82,22 @@ const updateCSS = async (
 
 const updateHTML = async (
 	page: Page,
+	fileName: HTMLFile,
 	serverFilePath: Fixtures['serverFilePath'],
+	replacement: (str: string) => string,
 ) => {
-	const htmlPath = path.join(serverFilePath.filePath, 'index.html');
+	const htmlPath = path.join(serverFilePath.filePath, fileName);
 	const htmlContents = await fs.promises.readFile(htmlPath, 'utf-8');
 
 	const evaluate = waitForWebSocketEvent(page, 'html-update');
-	const updateFile = fs.promises.writeFile(
-		htmlPath,
-		htmlContents.replace('My Site', 'My Cool Site'),
-	);
+	const updateFile = fs.promises.writeFile(htmlPath, replacement(htmlContents));
 
 	const [payload] = await Promise.all([evaluate, updateFile]);
 
 	expect(payload).toMatchObject({
 		eventName: 'html-update',
 		data: {
-			fileName: `${tempDir}/${serverFilePath.path}/index.html`,
+			fileName: `${tempDir}/${serverFilePath.path}/${fileName}`,
 		},
 	});
 
@@ -155,11 +155,54 @@ describeSerial('edit CSS', () => {
 	});
 });
 
-test('edit HTML', async ({ page, serverFilePath }) => {
-	await page.goto(serverFilePath.url);
-	await expect(page).toHaveTitle(/My Site/);
-	await updateHTML(page, serverFilePath);
-	await expect(page).toHaveTitle(/My Cool Site/);
+describeSerial('edit index.html', () => {
+	let pageTitle = 'My Site';
+
+	test('ensure changes are received', async ({ page, serverFilePath }) => {
+		await page.goto(serverFilePath.url);
+		await expect(page).toHaveTitle(pageTitle);
+		pageTitle = 'My Cool Site';
+		await updateHTML(page, 'index.html', serverFilePath, (htmlContents) =>
+			htmlContents.replace('My Site', pageTitle),
+		);
+		await expect(page).toHaveTitle(pageTitle);
+	});
+
+	test('ensure changes to another .html file are not received', async ({
+		page,
+		serverFilePath,
+	}) => {
+		await expect(page).toHaveTitle(pageTitle);
+		await updateHTML(page, 'page-two.html', serverFilePath, (htmlContents) =>
+			htmlContents.replace('Page Two', 'Page II'),
+		);
+		await expect(page).toHaveTitle(pageTitle);
+	});
+});
+
+describeSerial('edit page-two.html', () => {
+	let pageTitle = 'Page Two';
+	test('ensure changes are received', async ({ page, serverFilePath }) => {
+		// TODO(bret): Test .html & no-.html
+		await page.goto(serverFilePath.url + 'page-two');
+		await expect(page).toHaveTitle(pageTitle);
+		pageTitle = 'Page II';
+		await updateHTML(page, 'page-two.html', serverFilePath, (htmlContents) =>
+			htmlContents.replace('Page Two', pageTitle),
+		);
+		await expect(page).toHaveTitle(pageTitle);
+	});
+
+	test('ensure changes to another .html file are not received', async ({
+		page,
+		serverFilePath,
+	}) => {
+		await expect(page).toHaveTitle(pageTitle);
+		await updateHTML(page, 'index.html', serverFilePath, (htmlContents) =>
+			htmlContents.replace('My Site', 'My Cool Site'),
+		);
+		await expect(page).toHaveTitle(pageTitle);
+	});
 });
 
 // TODO(bret): Make sure only the HTML page that is currently loaded refreshes!!
@@ -179,7 +222,9 @@ describeSerial('edit CSS then HTML', () => {
 			'rgb(0, 0, 255)',
 		);
 		await expect(page).toHaveTitle(/My Site/);
-		await updateHTML(page, serverFilePath);
+		await updateHTML(page, 'index.html', serverFilePath, (htmlContents) =>
+			htmlContents.replace('My Site', 'My Cool Site'),
+		);
 		await expect(page).toHaveTitle(/My Cool Site/);
 
 		// the background color should NOT be reset!

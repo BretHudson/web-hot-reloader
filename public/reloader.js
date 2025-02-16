@@ -37,6 +37,17 @@ const updateCSS = (fileName) => {
 };
 
 const updateHTML = (fileName, contents) => {
+	const names = ['index.html', '.html'];
+
+	const targetPath = window.location.origin + '/' + fileName;
+	// TODO(bret): Revisit this
+	const valid = names.some((name) => {
+		const cur = window.location.origin + window.location.pathname + name;
+		return cur === targetPath || cur === targetPath.replace('index.html', '');
+	});
+
+	if (!valid) return;
+
 	const stylesheets = [
 		...document.querySelectorAll('link[rel="stylesheet"]'),
 	].map(({ href }) => href.replace(_origin + '/', ''));
