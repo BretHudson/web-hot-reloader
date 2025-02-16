@@ -13,6 +13,9 @@ const DEFAULT_PORT = 3008;
 
 const { PORT = DEFAULT_PORT, NODE_ENV = 'production' } = process.env;
 
+console.log('Starting Web Hot Reloader');
+console.log('Options: ' + JSON.stringify({ PORT, NODE_ENV }));
+
 const [_nodePath, _scriptPath, ...args] = process.argv;
 
 const [watchPath] = args;
@@ -58,9 +61,17 @@ io.on('connection', (client) => {
 	});
 });
 
-const sendMessageCSSUpdate = (eventType, fileName) => {
-	io.sockets.emit('css-update', { fileName });
-	console.log(`${fileName} update emited (eventType: ${eventType})`);
+const fileToEventMap = {
+	'.css': 'css-update',
+	'.html': 'html-update',
+};
+const sendUpdate = (eventType, fileName, contents) => {
+	const ext = path.extname(fileName);
+	const event = fileToEventMap[ext];
+	io.sockets.emit(event, { fileName, contents });
+	console.log(
+		`[${event}] ${fileName} update emitted (eventType: ${eventType})`,
+	);
 };
 
 const checksumMap = new Map();
@@ -85,16 +96,29 @@ fs.watchFile(clientJsPath, { interval: 1000 }, () => {
 });
 
 // TODO(bret): Do not commit recursive!!!
-fs.watch(watchPath, { recursive: true }, (eventType, fileName) => {
+fs.watch(watchPath, { recursive: true }, async (eventType, fileName) => {
+	if (!fileName) throw new Error('empty fileName?!');
+	if (eventType === 'rename') return;
+
 	fileName = fileName.replaceAll(path.sep, '/');
 
-	if (fileName?.endsWith('.css')) {
-		const filePath = path.join(watchPath, fileName);
+	const filePath = path.join(watchPath, fileName);
+	const stats = await fs.promises.stat(filePath);
+	if (!stats.isFile()) return;
 
-		fs.readFile(filePath, (err, data) => {
-			if (haveFileContentsUpdated(filePath, data) === false) return;
-			sendMessageCSSUpdate(eventType, fileName);
-		});
+	switch (path.extname(fileName)) {
+		case '.html': {
+			const contents = await fs.promises.readFile(filePath, 'utf-8');
+			if (haveFileContentsUpdated(filePath, contents) === false) return;
+			sendUpdate(eventType, fileName, contents);
+			break;
+		}
+		case '.css': {
+			const contents = await fs.promises.readFile(filePath, 'utf-8');
+			if (haveFileContentsUpdated(filePath, contents) === false) return;
+			sendUpdate(eventType, fileName, contents);
+			break;
+		}
 	}
 });
 const shutdown = () => server.close(() => process.exit(0));
@@ -103,5 +127,5 @@ process.on('SIGINT', () => shutdown());
 process.on('SIGTERM', () => shutdown());
 
 server.listen(PORT, () => {
-	console.log(`Server listening on ${PORT} in ${NODE_ENV}`);
+	console.log('Web Hot Reloader started successfully');
 });

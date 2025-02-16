@@ -27,6 +27,12 @@ const updateCSS = (fileName) => {
 	document.head.appendChild(newCSS);
 };
 
+const updateHTML = (fileName, contents) => {
+	document.open();
+	document.write(contents);
+	document.close();
+};
+
 const reloadSelf = () => {
 	const fileName = import.meta.url.split('?')[0];
 	console.warn(`Swapped ${fileName}`);
@@ -53,6 +59,11 @@ const initWebsocket = () => {
 	socket.on('css-update', (data) => {
 		const { fileName } = data;
 		updateCSS(fileName);
+	});
+
+	socket.on('html-update', (data) => {
+		const { fileName, contents } = data;
+		updateHTML(fileName, contents);
 	});
 
 	socket.on('reload-self', (data) => {
