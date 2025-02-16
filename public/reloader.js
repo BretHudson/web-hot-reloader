@@ -8,11 +8,19 @@ const SCRIPT_ID = '__web-hot-reloader';
 const queryKey = '_whr';
 const getCacheBust = () => `?${queryKey}=${Date.now().toString(36)}`;
 
+let self = document.getElementById(SCRIPT_ID);
+window.addEventListener('DOMContentLoaded', () => {
+	self = document.getElementById(SCRIPT_ID);
+});
+const getOrigin = () => self.getAttribute('data-origin');
+
 const updateCSS = (fileName) => {
+	console.log('css', { fileName });
 	// TODO(bret): At some point, set it up to just update the CSS that it needs to...
-	const cssElems = [...document.querySelectorAll(`link`)].filter((link) =>
-		link.href.endsWith(fileName),
-	);
+	const cssElems = [...document.querySelectorAll(`link`)].filter((link) => {
+		// TODO(bret); this check isn't robust
+		return link.href.split('?')[0].endsWith(fileName);
+	});
 
 	const [cssElem] = cssElems;
 
@@ -28,23 +36,49 @@ const updateCSS = (fileName) => {
 };
 
 const updateHTML = (fileName, contents) => {
+	const stylesheets = [
+		...document.querySelectorAll('link[rel="stylesheet"]'),
+	].map(({ href }) => href.replace(_origin + '/', ''));
+	console.log(stylesheets);
+	stylesheets
+		.filter((href) => href.includes(queryKey))
+		.map((href) => {
+			// TODO(bret): Make this robust
+			// href.replace(origin, '').replace(_origin, '')
+			return href.replace(window.location.href, '');
+		})
+		.forEach((href) => {
+			console.log({ href });
+			// TODO(bret): There's gotta be a better way to do this
+			// we really need to construct the full URL so we can compare them, unfortuately. '/css/reset.css' vs './reset.css' vs '../reset.css', etc
+			// TODO(bret): How to handle ./ ?
+			contents = contents.replace(
+				'"' + href.split('?')[0] + '"',
+				'"' + href + '"',
+			);
+		});
+
+	const script = document.getElementById('__web-hot-reloader');
+
 	document.open();
 	document.write(contents);
 	document.close();
+
+	if (!document.getElementById('__web-hot-reloader'))
+		document.head.append(script);
 };
 
 const reloadSelf = () => {
 	const fileName = import.meta.url.split('?')[0];
 	console.warn(`Swapped ${fileName}`);
-	const script = document.getElementById(SCRIPT_ID);
 	const newScript = document.createElement('script');
-	for (const attr of script.attributes) {
+	for (const attr of self.attributes) {
 		if (attr.name === 'src') continue;
 		newScript.setAttribute(attr.name, attr.value);
 	}
 	newScript.src = import.meta.url.split('?')[0] + getCacheBust();
-	script.after(newScript);
-	script.remove();
+	self.after(newScript);
+	self.remove();
 };
 
 let lastJsUpdate = null;

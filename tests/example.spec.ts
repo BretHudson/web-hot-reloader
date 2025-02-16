@@ -97,6 +97,8 @@ test('edit HTML', async ({ page, serverFilePath }) => {
 	await expect(page).toHaveTitle(/My Cool Site/);
 });
 
+// TODO(bret): Make sure only the HTML page that is currently loaded refreshes!!
+
 test('edit CSS then HTML', async ({ page, serverFilePath }) => {
 	await page.goto(serverFilePath.url);
 
@@ -109,6 +111,7 @@ test('edit CSS then HTML', async ({ page, serverFilePath }) => {
 	await expect(page).toHaveTitle(/My Cool Site/);
 
 	// the background color should NOT be reset!
+
 	expect(await expectBgColor(page)).toEqual('rgb(0, 0, 255)');
 });
 
