@@ -1,8 +1,9 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import md5 from 'md5';
+
 import socketio from 'socket.io';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -62,7 +63,10 @@ const sendMessageCSSUpdate = (eventType, fileName) => {
 
 const checksumMap = new Map();
 const haveFileContentsUpdated = (filePath, fileContents) => {
-	const checksum = md5(fileContents);
+	const checksum = crypto
+		.createHash('sha256')
+		.update(fileContents, 'utf-8')
+		.digest('hex');
 	if (checksum === checksumMap.get(filePath)) return false;
 	checksumMap.set(filePath, checksum);
 	return true;
