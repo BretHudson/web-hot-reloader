@@ -3,12 +3,7 @@ import path from 'path';
 
 import type { Page } from '@playwright/test';
 
-import {
-	test,
-	expect,
-	type Fixtures,
-	constructServerFilePath,
-} from './fixtures';
+import { test, expect, type Fixtures, describeSerial } from './fixtures';
 import { tempDir, templateRoot } from './shared';
 
 test.beforeEach(async ({ serverFilePath }) => {
@@ -106,19 +101,9 @@ test('edit HTML', async ({ page, serverFilePath }) => {
 
 // TODO(bret): Make sure only the HTML page that is currently loaded refreshes!!
 
-test.describe.serial('edit CSS then HTML', () => {
-	test.use({ serverFilePath: constructServerFilePath() });
-
-	let page: Page;
-	test.beforeAll(async ({ browser }) => {
-		page = await browser.newPage();
-		// resolve(page);
-	});
-	test.afterAll(async () => {
-		await page.close();
-	});
-
+describeSerial('edit CSS then HTML', async () => {
 	test("ensure HTML changes don't override CSS changes", async ({
+		page,
 		serverFilePath,
 	}) => {
 		await page.goto(serverFilePath.url);
@@ -134,13 +119,11 @@ test.describe.serial('edit CSS then HTML', () => {
 		expect(await expectBgColor(page)).toEqual('rgb(0, 0, 255)');
 	});
 
-	test('ensure new CSS changes are applied', async ({ serverFilePath }) => {
+	test('ensure new CSS changes are applied', async ({
+		page,
+		serverFilePath,
+	}) => {
 		await updateCSS(page, serverFilePath, 'lime');
 		expect(await expectBgColor(page)).toEqual('rgb(0, 255, 0)');
 	});
 });
-
-// test('has title 2', async ({ page, serverFilePath }) => {
-// 	console.log({ ay: 2, serverFilePath });
-// 	// expect(serverFilePath.value).toEqual('some data2');
-// });
