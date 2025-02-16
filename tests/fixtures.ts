@@ -3,12 +3,14 @@ import { test as base, type Page } from '@playwright/test';
 
 import { tempRoot, SERVER_PORT, tempDir } from './shared';
 
+export interface ServerFilePath {
+	path: string;
+	url: string;
+	filePath: string;
+}
+
 export interface Fixtures {
-	serverFilePath: {
-		path: string;
-		url: string;
-		filePath: string;
-	};
+	serverFilePath: ServerFilePath;
 }
 
 let count = 0;
@@ -60,6 +62,6 @@ export const describeSerial = (title: string, callback: () => void) => {
 			await page.close();
 		});
 
-		return callback();
+		callback();
 	});
 };
