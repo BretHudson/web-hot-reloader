@@ -34,6 +34,7 @@ const waitForWebSocketEvent = (page: Page) => {
 const updateCSS = async (
 	page: Page,
 	serverFilePath: Fixtures['serverFilePath'],
+	color: string,
 ) => {
 	const cssPath = path.join(serverFilePath.filePath, 'styles.css');
 	const cssContents = await fs.promises.readFile(cssPath, 'utf-8');
@@ -41,7 +42,7 @@ const updateCSS = async (
 	const evaluate = waitForWebSocketEvent(page);
 	const updateFile = fs.promises.writeFile(
 		cssPath,
-		cssContents.replace('red', 'blue'),
+		cssContents.replace(/background: .+;/, `background: ${color};`),
 	);
 
 	const [payload] = await Promise.all([evaluate, updateFile]);
@@ -86,7 +87,7 @@ const updateHTML = async (
 test('edit CSS', async ({ page, serverFilePath }) => {
 	await page.goto(serverFilePath.url);
 	expect(await expectBgColor(page)).toEqual('rgb(255, 0, 0)');
-	await updateCSS(page, serverFilePath);
+	await updateCSS(page, serverFilePath, 'blue');
 	expect(await expectBgColor(page)).toEqual('rgb(0, 0, 255)');
 });
 
@@ -103,7 +104,7 @@ test('edit CSS then HTML', async ({ page, serverFilePath }) => {
 	await page.goto(serverFilePath.url);
 
 	expect(await expectBgColor(page)).toEqual('rgb(255, 0, 0)');
-	await updateCSS(page, serverFilePath);
+	await updateCSS(page, serverFilePath, 'blue');
 	expect(await expectBgColor(page)).toEqual('rgb(0, 0, 255)');
 
 	await expect(page).toHaveTitle(/My Site/);
@@ -113,6 +114,8 @@ test('edit CSS then HTML', async ({ page, serverFilePath }) => {
 	// the background color should NOT be reset!
 
 	expect(await expectBgColor(page)).toEqual('rgb(0, 0, 255)');
+	await updateCSS(page, serverFilePath, 'lime');
+	expect(await expectBgColor(page)).toEqual('rgb(0, 255, 0)');
 });
 
 // test('has title 2', async ({ page, serverFilePath }) => {
