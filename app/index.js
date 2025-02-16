@@ -43,7 +43,11 @@ const server = http.createServer((req, res) => {
 		showError();
 	}
 });
-const io = new Server(server);
+const io = new Server(server, {
+	cors: {
+		origin: '*',
+	},
+});
 
 let lastJsUpdate = Date.now();
 io.on('connection', (client) => {

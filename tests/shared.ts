@@ -8,7 +8,7 @@ export const rootPath = path.join(__dirname, '..');
 export const SERVER_PORT = 3030;
 export const WHR_PORT = 3040;
 
-export const tempDir = 'temp3';
+export const tempDir = 'temp';
 export const siteRoot = path.join(rootPath, 'tests/site');
 export const templateRoot = path.join(siteRoot, 'template');
 export const tempRoot = path.join(siteRoot, tempDir);
