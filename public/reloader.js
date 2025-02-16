@@ -37,12 +37,15 @@ const updateCSS = (fileName) => {
 };
 
 const updateHTML = (fileName, contents) => {
-	const names = ['index.html', '.html'];
+	const names = ['.html', 'index.html', '/index.html'];
 
 	const targetPath = window.location.origin + '/' + fileName;
+	console.log({ fileName, targetPath });
 	// TODO(bret): Revisit this
+	// TODO(bret): how to handle when trailing slashes aren't enabled on the server?
 	const valid = names.some((name) => {
 		const cur = window.location.origin + window.location.pathname + name;
+		console.log({ cur });
 		return cur === targetPath || cur === targetPath.replace('index.html', '');
 	});
 
