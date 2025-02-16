@@ -8,19 +8,21 @@ const SCRIPT_ID = '__web-hot-reloader';
 const queryKey = '_whr';
 const getCacheBust = () => `?${queryKey}=${Date.now().toString(36)}`;
 
-const updateCSS = fileName => {
+const updateCSS = (fileName) => {
 	// TODO(bret): At some point, set it up to just update the CSS that it needs to...
-	const cssElems = document.querySelectorAll(`link[href*="${fileName}"]`);
-	
+	const cssElems = [...document.querySelectorAll(`link`)].filter((link) =>
+		link.href.endsWith(fileName),
+	);
+
 	const [cssElem] = cssElems;
-	
+
 	const newCSS = document.createElement('link');
 	newCSS.rel = cssElem.rel;
 	newCSS.integrity = cssElem.integrity;
 	newCSS.type = cssElem.type;
 	newCSS.href = cssElem.href.split('?')[0] + getCacheBust();
 	newCSS.onload = () => {
-		[...cssElems].forEach(cssElem => cssElem.remove());
+		[...cssElems].forEach((cssElem) => cssElem.remove());
 	};
 	document.head.appendChild(newCSS);
 };
@@ -37,22 +39,23 @@ const reloadSelf = () => {
 	newScript.src = import.meta.url.split('?')[0] + getCacheBust();
 	script.after(newScript);
 	script.remove();
-}
+};
 
 let lastJsUpdate = null;
 const initWebsocket = () => {
 	const socket = io(origin);
-	
+	window['__whr-socket'] = socket;
+
 	socket.on('connect', () => {
 		console.log('Socket connected');
 	});
-	
-	socket.on('css-update', data => {
+
+	socket.on('css-update', (data) => {
 		const { fileName } = data;
 		updateCSS(fileName);
 	});
-	
-	socket.on('reload-self', data => {
+
+	socket.on('reload-self', (data) => {
 		if (lastJsUpdate && lastJsUpdate !== data.lastJsUpdate) {
 			console.log('Unloading hot loader, about to disconnect');
 			socket.close();
@@ -60,23 +63,23 @@ const initWebsocket = () => {
 		}
 		({ lastJsUpdate } = data);
 	});
-	
+
 	socket.on('disconnect', () => {
 		console.log('Socket disconnected');
 	});
-	
+
 	console.log('Websocket initialized');
 };
 
 const init = () => {
 	const scriptSrc = `${origin}/socket.io/socket.io.js`;
 	const scriptElem = document.createElement('script');
-	scriptElem.onload = e => {
+	scriptElem.onload = (e) => {
 		initWebsocket();
 	};
 	scriptElem.src = scriptSrc;
 	document.head.append(scriptElem);
-	
+
 	console.log('Hot loader initialized');
 };
 

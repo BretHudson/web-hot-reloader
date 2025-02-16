@@ -1,15 +1,17 @@
-const fs = require('fs');
-const http = require('http');
-const md5 = require('md5');
-const path = require('path');
-const socketio = require('socket.io');
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import http from 'node:http';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { Server } from 'socket.io';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const DEFAULT_PORT = 3008;
 
-const {
-	PORT = DEFAULT_PORT,
-	NODE_ENV = 'production'
-} = process.env;
+const { PORT = DEFAULT_PORT, NODE_ENV = 'production' } = process.env;
 
 const [_nodePath, _scriptPath, ...args] = process.argv;
 
@@ -17,10 +19,10 @@ const [watchPath] = args;
 
 const publicPath = path.join(__dirname, '../public');
 const server = http.createServer((req, res) => {
-	res.setHeader('Access-Control-Allow-Origin', '*'); 
-	
+	res.setHeader('Access-Control-Allow-Origin', '*');
+
 	let contentType = 'text/html';
-	
+
 	const showError = () => {
 		res.writeHead(404, { 'Content-Type': contentType });
 		res.end(undefined, 'utf-8');
@@ -39,12 +41,16 @@ const server = http.createServer((req, res) => {
 		showError();
 	}
 });
-const io = socketio(server);
+const io = new Server(server, {
+	cors: {
+		origin: '*',
+	},
+});
 
 let lastJsUpdate = Date.now();
-io.on('connection', client => {
+io.on('connection', (client) => {
 	console.log(`connect\t\tid: ${client.id}`);
-	
+
 	client.emit('reload-self', { lastJsUpdate });
 
 	client.on('disconnect', () => {
@@ -59,9 +65,10 @@ const sendMessageCSSUpdate = (eventType, fileName) => {
 
 const checksumMap = new Map();
 const haveFileContentsUpdated = (filePath, fileContents) => {
-	const checksum = md5(fileContents);
-	if (checksum === checksumMap.get(filePath))
-		return false;
+	const checksum =
+		fileContents &&
+		crypto.createHash('sha256').update(fileContents, 'utf-8').digest('hex');
+	if (checksum === checksumMap.get(filePath)) return false;
 	checksumMap.set(filePath, checksum);
 	return true;
 };
@@ -77,16 +84,23 @@ fs.watchFile(clientJsPath, { interval: 1000 }, () => {
 	});
 });
 
-fs.watch(watchPath, (eventType, fileName) => {
+// TODO(bret): Do not commit recursive!!!
+fs.watch(watchPath, { recursive: true }, (eventType, fileName) => {
+	fileName = fileName.replaceAll(path.sep, '/');
+
 	if (fileName?.endsWith('.css')) {
 		const filePath = path.join(watchPath, fileName);
-		
+
 		fs.readFile(filePath, (err, data) => {
 			if (haveFileContentsUpdated(filePath, data) === false) return;
 			sendMessageCSSUpdate(eventType, fileName);
 		});
 	}
 });
+const shutdown = () => server.close(() => process.exit(0));
+
+process.on('SIGINT', () => shutdown());
+process.on('SIGTERM', () => shutdown());
 
 server.listen(PORT, () => {
 	console.log(`Server listening on ${PORT} in ${NODE_ENV}`);

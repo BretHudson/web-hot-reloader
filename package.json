@@ -1,15 +1,22 @@
 {
-  "name": "web-hot-loader",
-  "version": "0.3.1",
-  "description": "A CSS hot loader for the browser",
-  "main": "app/index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "author": "Bret Hudson",
-  "license": "ISC",
-  "dependencies": {
-    "md5": "2.3.0",
-    "socket.io": "2.3.0"
-  }
+	"name": "web-hot-loader",
+	"version": "0.3.1",
+	"description": "A CSS hot loader for the browser",
+	"main": "app/index.js",
+	"scripts": {
+		"test:serve": "serve",
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"type": "module",
+	"author": "Bret Hudson",
+	"license": "ISC",
+	"dependencies": {
+		"socket.io": "4.8.1"
+	},
+	"devDependencies": {
+		"@playwright/test": "^1.50.1",
+		"@types/node": "^22.13.4",
+		"serve": "^14.2.4"
+	},
+	"packageManager": "pnpm@9.15.0+sha512.76e2379760a4328ec4415815bcd6628dee727af3779aaa4c914e3944156c4299921a89f976381ee107d41f12cfa4b66681ca9c718f0668fa0831ed4c6d8ba56c"
 }
