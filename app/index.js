@@ -17,8 +17,6 @@ const [_nodePath, _scriptPath, ...args] = process.argv;
 
 const [watchPath] = args;
 
-console.log('right awayyyy');
-
 const publicPath = path.join(__dirname, '../public');
 const server = http.createServer((req, res) => {
 	res.setHeader('Access-Control-Allow-Origin', '*');
