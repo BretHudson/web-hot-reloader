@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
-import { rootPath, SERVER_PORT, WHR_PORT } from './tests/shared';
+import { rootPath, SERVER_PORT, siteRootDir, WHR_PORT } from './tests/shared';
 
 /**
  * Read environment variables from file.
@@ -73,15 +73,15 @@ export default defineConfig({
 	/* Run your local dev server before starting the tests */
 	webServer: [
 		{
-			command: `pnpm serve tests/site -p ${SERVER_PORT}`,
-			url: `http://127.0.0.1:${SERVER_PORT}`,
+			command: `npm run test:serve -- ${siteRootDir}/ -p ${SERVER_PORT}`,
+			url: `http://127.0.0.1:${SERVER_PORT}/_template/index.html`,
 			reuseExistingServer: !process.env.CI,
 			stdout: 'pipe',
 			stderr: 'pipe',
 			timeout: 6e3,
 		},
 		{
-			command: `node ${path.join(rootPath, 'app')} ./tests/site`,
+			command: `node ${path.join(rootPath, 'app')} ./${siteRootDir}`,
 			url: `http://127.0.0.1:${WHR_PORT}/reloader.js`,
 			reuseExistingServer: !process.env.CI,
 			stdout: 'pipe',

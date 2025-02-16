@@ -6,6 +6,8 @@ on:
     branches: [ main, master ]
 jobs:
   test:
+    env:
+      NODE_ENV: development
     timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
@@ -14,8 +16,18 @@ jobs:
       with:
         node-version: lts/*
     - name: Install dependencies
-      run: npm ci
+      run: npm ci --include=dev
+    # adapted from https://github.com/liam-hq/liam/pull/716/files
+    - name: Cache Playwright Browsers
+      id: playwright-cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          playwright-${{ runner.os }}-
     - name: Install Playwright Browsers
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
       run: npx playwright install --with-deps
     - name: Run Playwright tests
       run: npx playwright test
