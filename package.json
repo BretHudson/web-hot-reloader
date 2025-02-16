@@ -11,5 +11,11 @@
 	"license": "ISC",
 	"dependencies": {
 		"socket.io": "2.3.0"
-	}
+	},
+  "devDependencies": {
+    "@playwright/test": "^1.50.1",
+    "@types/node": "^22.13.4",
+    "serve": "^14.2.4",
+    "serve-handler": "^6.1.6"
+  }
 }

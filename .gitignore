@@ -1,2 +1,12 @@
 node_modules
 *.bat
+
+.env
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+tests/site/temp**/*
