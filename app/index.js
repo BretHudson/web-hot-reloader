@@ -4,7 +4,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import socketio from 'socket.io';
+import { Server } from 'socket.io';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -43,7 +43,7 @@ const server = http.createServer((req, res) => {
 		showError();
 	}
 });
-const io = socketio(server);
+const io = new Server(server);
 
 let lastJsUpdate = Date.now();
 io.on('connection', (client) => {
