@@ -1,8 +1,12 @@
-const fs = require('fs');
-const http = require('http');
-const md5 = require('md5');
-const path = require('path');
-const socketio = require('socket.io');
+import fs from 'node:fs';
+import http from 'node:http';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import md5 from 'md5';
+import socketio from 'socket.io';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const DEFAULT_PORT = 3008;
 
@@ -11,6 +15,8 @@ const { PORT = DEFAULT_PORT, NODE_ENV = 'production' } = process.env;
 const [_nodePath, _scriptPath, ...args] = process.argv;
 
 const [watchPath] = args;
+
+console.log('right awayyyy');
 
 const publicPath = path.join(__dirname, '../public');
 const server = http.createServer((req, res) => {
@@ -73,7 +79,8 @@ fs.watchFile(clientJsPath, { interval: 1000 }, () => {
 	});
 });
 
-fs.watch(watchPath, (eventType, fileName) => {
+// TODO(bret): Do not commit recursive!!!
+fs.watch(watchPath, { recursive: true }, (eventType, fileName) => {
 	if (fileName?.endsWith('.css')) {
 		const filePath = path.join(watchPath, fileName);
 
@@ -83,6 +90,10 @@ fs.watch(watchPath, (eventType, fileName) => {
 		});
 	}
 });
+const shutdown = () => server.close(() => process.exit(0));
+
+process.on('SIGINT', () => shutdown());
+process.on('SIGTERM', () => shutdown());
 
 server.listen(PORT, () => {
 	console.log(`Server listening on ${PORT} in ${NODE_ENV}`);
