@@ -13,15 +13,23 @@ export interface Fixtures {
 
 let count = 0;
 
+export const constructServerFilePath = () => {
+	const _path = `test-${count++}`;
+	const data = {
+		path: _path,
+		url: `http://localhost:${SERVER_PORT}/${tempDir}/${_path}/`,
+		filePath: path.join(tempRoot, _path),
+	};
+	return data;
+};
+
 export * from '@playwright/test';
 export const test = base.extend<Fixtures>({
-	serverFilePath: async ({}, use) => {
-		const _path = `test-${count++}`;
-		const data = {
-			path: _path,
-			url: `http://localhost:${SERVER_PORT}/${tempDir}/${_path}/`,
-			filePath: path.join(tempRoot, _path),
-		};
-		await use(data);
-	},
+	serverFilePath: [
+		async ({}, use) => {
+			const data = constructServerFilePath();
+			await use(data);
+		},
+		{ option: true, scope: 'test' },
+	],
 });

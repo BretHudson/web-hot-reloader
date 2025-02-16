@@ -19,6 +19,7 @@ const updateCSS = (fileName) => {
 	// TODO(bret): At some point, set it up to just update the CSS that it needs to...
 	const cssElems = [...document.querySelectorAll(`link`)].filter((link) => {
 		// TODO(bret); this check isn't robust
+		console.log('test', link.href.split('?')[0], fileName);
 		return link.href.split('?')[0].endsWith(fileName);
 	});
 
