@@ -3,8 +3,14 @@ import path from 'node:path';
 
 import type { Page } from '@playwright/test';
 
-import { test, expect, type ServerFilePath, describeSerial } from './fixtures';
-import { tempDir, templateRoot } from './shared';
+import {
+	test,
+	expect,
+	type ServerFilePath,
+	describeSerial,
+	WHRLocator,
+} from './fixtures';
+import { replacementsRoot, tempDir, templateRoot } from './shared';
 
 abstract class BasePage {
 	static defaultTitle: string;
@@ -186,6 +192,40 @@ const options = [
 	['/page-two.html', PageTwoPage],
 	['/sub-dir/index.html', SubDirIndexPage],
 ] as const;
+
+const replaceImage = async (src: string, serverFilePath: ServerFilePath) => {
+	const a = path.join(replacementsRoot, src);
+	const b = path.join(serverFilePath.filePath, src);
+	await fs.promises.copyFile(a, b);
+};
+
+test.describe('Image loading', () => {
+	test('replace image', async ({ page, serverFilePath }) => {
+		const indexPage = new IndexPage(page, '', serverFilePath);
+		await indexPage.goto();
+
+		await indexPage.expectTitle(IndexPage.defaultTitle);
+
+		const imageSrc = 'img/logo.png';
+		const image = new WHRLocator(page, 'src', imageSrc);
+		await expect(image).WHR_toNotBeReloaded();
+		await replaceImage(imageSrc, serverFilePath);
+		await expect(image).WHR_toBeReloaded();
+	});
+
+	test('replace favicon', async ({ page, serverFilePath }) => {
+		const indexPage = new IndexPage(page, '', serverFilePath);
+		await indexPage.goto();
+
+		await indexPage.expectTitle(IndexPage.defaultTitle);
+
+		const faviconSrc = 'img/favicon.png';
+		const favicon = new WHRLocator(page, 'href', faviconSrc);
+		await expect(favicon).WHR_toNotBeReloaded();
+		await replaceImage(faviconSrc, serverFilePath);
+		await expect(favicon).WHR_toBeReloaded();
+	});
+});
 
 options.forEach(([_fileName, CurPageType]) => {
 	const fileName = _fileName.replace(/^\//, '');

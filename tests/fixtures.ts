@@ -1,8 +1,12 @@
-import fs from 'node:fs';
 import path from 'node:path';
-import { test as base, type Page } from '@playwright/test';
+import {
+	test as baseTest,
+	expect as baseExpect,
+	type Page,
+	Locator,
+} from '@playwright/test';
 
-import { tempRoot, SERVER_PORT, tempDir, templateRoot } from './shared';
+import { tempRoot, SERVER_PORT, tempDir } from './shared';
 
 export interface ServerFilePath {
 	path: string;
@@ -34,7 +38,7 @@ const constructServerFilePath = () => {
 };
 
 export * from '@playwright/test';
-export const test = base.extend<Fixtures>({
+export const test = baseTest.extend<Fixtures>({
 	serverFilePath: [
 		async ({}, use) => {
 			const data = constructServerFilePath();
@@ -42,6 +46,60 @@ export const test = base.extend<Fixtures>({
 		},
 		{ option: true, scope: 'test' },
 	],
+});
+
+// TODO(bret): Move this
+export class WHRLocator {
+	locator: Locator;
+	attr: string;
+	page: Page;
+	constructor(page: Page, attr: string, filePath: string) {
+		const selector = `[${attr}^="${filePath}"]`;
+		this.locator = page.locator(selector);
+		this.attr = attr;
+		this.page = page;
+	}
+}
+
+export const expect = baseExpect.extend({
+	async WHR_toNotBeReloaded(received: WHRLocator) {
+		const { locator, attr } = received;
+		await locator.waitFor({ state: 'attached' });
+		const link = await locator.getAttribute(attr);
+		if (!link) {
+			return {
+				message: () => `attribute "${attr}" not present on element`,
+				pass: false,
+			};
+		}
+		const pass = !link.includes('?');
+		return {
+			message: () => (pass ? 'passed' : `element has already been reloaded`),
+			pass,
+		};
+	},
+
+	async WHR_toBeReloaded(received: WHRLocator) {
+		const { page, locator, attr } = received;
+		await locator.waitFor({ state: 'attached' });
+		try {
+			const good = await page.waitForFunction(
+				(el) => el?.getAttribute(attr)?.includes('?'),
+				await locator.elementHandle(),
+				{ timeout: 10e3 },
+			);
+
+			return {
+				message: () => 'passed',
+				pass: Boolean(good),
+			};
+		} catch {
+			return {
+				message: () => 'element has not been reloaded via WHR',
+				pass: true,
+			};
+		}
+	},
 });
 
 export const describeSerial = (title: string, callback: () => void) => {
