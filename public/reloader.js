@@ -9,8 +9,10 @@ const log = console.log.bind(this, '[WHR]');
 const warn = console.warn.bind(this, '[WHR]');
 const error = console.error.bind(this, '[WHR]');
 
+// TODO(bret): Ensure any query params on the src/href attributes are preserved
+// NOTE(bret): It will always be /?_whr=[..]$/ or /&_whr=[..]$/
 const queryKey = '_whr';
-const getCacheBust = () => `?${queryKey}=${Date.now().toString(36)}`;
+const getCacheBust = () => `${queryKey}=${Date.now().toString(36)}`;
 
 let self = document.getElementById(SCRIPT_ID);
 window.addEventListener('DOMContentLoaded', () => {
@@ -18,14 +20,24 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 const getOrigin = () => self.getAttribute('data-origin');
 
+const removeAllQueryStrings = (url) => url.split('?')[0];
+const removeCacheBust = (url) => removeAllQueryStrings(url);
+const addCacheBust = (url) => removeCacheBust(url) + '?' + getCacheBust();
+
+/// NOTE(bret): there is a difference between accessing via square brackets & getAttribute()
+// For example, given <img src="logo.svg" />
+// - link.src/link['src'] will return the computed property, ie "http://localhost/logo.svg"
+// - link.getAttribute('src') will return "logo.svg"
+
 const updateElems = (fileName, query, attr) => {
 	// TODO(bret); this check isn't robust
 	const elems = [...document.querySelectorAll(query)].filter((link) => {
-		return link[attr].split('?')[0].endsWith(fileName);
+		return removeAllQueryStrings(link[attr]).endsWith(fileName);
 	});
 
 	elems.forEach((elem) => {
-		elem[attr] = elem[attr].split('?')[0] + getCacheBust();
+		const value = addCacheBust(elem.getAttribute(attr));
+		elem.setAttribute(attr, value);
 	});
 };
 
@@ -33,8 +45,10 @@ const updateCSS = (fileName) => {
 	updateElems(fileName, `link`, 'href');
 };
 
-const updateHTML = (fileName, contents) => {
+const updateHTML = (fileName, _contents) => {
 	const names = ['.html', 'index.html', '/index.html'];
+
+	let contents = _contents;
 
 	// TODO(bret): Revisit this
 	const targetPath = window.location.origin + '/' + fileName;
@@ -45,27 +59,17 @@ const updateHTML = (fileName, contents) => {
 
 	if (!valid) return;
 
-	const stylesheets = [
-		...document.querySelectorAll('link[rel="stylesheet"]'),
-	].map(({ href }) => href.replace(_origin + '/', ''));
-	stylesheets
-		.filter((href) => href.includes(queryKey))
-		.map((href) => {
-			// TODO(bret): Make this robust
-			// href.replace(origin, '').replace(_origin, '')
-			return href.replace(window.location.href, '');
-		})
-		.forEach((href) => {
-			// TODO(bret): There's gotta be a better way to do this
-			// we really need to construct the full URL so we can compare them, unfortuately. '/css/reset.css' vs './reset.css' vs '../reset.css', etc
-			// TODO(bret): How to handle ./ ?
-			contents = contents.replace(
-				'"' + href.split('?')[0] + '"',
-				'"' + href + '"',
-			);
-		});
-
 	const script = document.getElementById('__web-hot-reloader');
+
+	// TODO(bret): Revisit this - string replacement is highly dependent on how the incoming HTML file is formatted :/
+	['src', 'href'].forEach((attr) => {
+		const elems = [...document.querySelectorAll(`[${attr}*="${queryKey}="]`)];
+		elems.forEach((elem) => {
+			const link = elem.getAttribute(attr);
+			const filePath = removeCacheBust(link);
+			contents = contents.replaceAll(`"${filePath}"`, `"${link}"`);
+		});
+	});
 
 	document.open();
 	document.write(contents);
@@ -75,19 +79,24 @@ const updateHTML = (fileName, contents) => {
 		document.head.append(script);
 };
 
+// TODO(bret): Figure out all the places an image could be used
 const updateImage = (fileName) => {
 	updateElems(fileName, `img`, 'src');
+	updateElems(fileName, `link`, 'href'); // shortcut icon
+
+	// TODO(bret): Gonna need a special flag or something for urls
+	// og:image / etc
 };
 
 const reloadSelf = () => {
-	const fileName = import.meta.url.split('?')[0];
+	const fileName = removeAllQueryStrings(import.meta.url);
 	warn(`Swapped ${fileName}`);
 	const newScript = document.createElement('script');
 	for (const attr of self.attributes) {
 		if (attr.name === 'src') continue;
 		newScript.setAttribute(attr.name, attr.value);
 	}
-	newScript.src = import.meta.url.split('?')[0] + getCacheBust();
+	newScript.src = addCacheBust(fileName);
 	self.after(newScript);
 	self.remove();
 };
