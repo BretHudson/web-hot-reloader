@@ -83,7 +83,6 @@ const expectStyle = async (
 	page: Page,
 	property: Exclude<keyof CSSStyleDeclaration, number | Symbol>,
 ) => {
-	console.log('expect style yo', property);
 	const body = page.locator('body');
 	const computedStyle = await body.evaluate((b, property) => {
 		return window.getComputedStyle(b)[property];
@@ -147,9 +146,6 @@ const updateCSS = async (
 			fileName: expectedFileName,
 		},
 	});
-
-	// TODO(bret): wait for websocket event
-	await new Promise<void>((resolve) => setTimeout(() => resolve(), 1e3));
 };
 
 const updateHTML = async (
@@ -176,74 +172,10 @@ const updateHTML = async (
 			fileName: expectedFileName,
 		},
 	});
-
-	// TODO(bret): wait for websocket event
-	await new Promise<void>((resolve) => setTimeout(() => resolve(), 1e3));
 };
 
 const defaultBGColor = 'rgb(255, 0, 0)';
 const defaultColor = 'rgb(255, 255, 255)';
-
-describeSerial('edit CSS', () => {
-	let background = defaultBGColor;
-	let color = defaultColor;
-
-	let indexPage: IndexPage;
-	test.beforeAll(async ({ page, serverFilePath }) => {
-		indexPage = new IndexPage(page, '', serverFilePath);
-		await indexPage.goto();
-	});
-
-	test('ensure edits are received', async () => {
-		console.log('what is happening');
-		expect(await expectStyle(indexPage.page, 'backgroundColor')).toEqual(
-			background,
-		);
-		expect(await expectStyle(indexPage.page, 'color')).toEqual(color);
-
-		background = 'rgb(0, 0, 255)';
-		await updateCSS(indexPage.page, 'styles.css', indexPage.serverFilePath, {
-			background,
-		});
-		expect(await expectStyle(indexPage.page, 'backgroundColor')).toEqual(
-			background,
-		);
-		expect(await expectStyle(indexPage.page, 'color')).toEqual(color);
-	});
-
-	test('ensure multiple files are received', async () => {
-		expect(await expectStyle(indexPage.page, 'backgroundColor')).toEqual(
-			background,
-		);
-		expect(await expectStyle(indexPage.page, 'color')).toEqual(color);
-
-		color = 'rgb(0, 0, 0)';
-		await updateCSS(indexPage.page, 'styles2.css', indexPage.serverFilePath, {
-			color,
-		});
-		expect(await expectStyle(indexPage.page, 'backgroundColor')).toEqual(
-			background,
-		);
-		expect(await expectStyle(indexPage.page, 'color')).toEqual(color);
-	});
-
-	test('ensure non-included files are ignored client-side', async () => {
-		expect(await expectStyle(indexPage.page, 'backgroundColor')).toEqual(
-			background,
-		);
-		expect(await expectStyle(indexPage.page, 'color')).toEqual(color);
-
-		await updateCSS(indexPage.page, 'styles3.css', indexPage.serverFilePath, {
-			background: 'magenta',
-			color: 'magenta',
-		});
-		expect(await expectStyle(indexPage.page, 'backgroundColor')).toEqual(
-			background,
-		);
-		expect(await expectStyle(indexPage.page, 'color')).toEqual(color);
-	});
-});
-
 const createTitle = (filePath: string, same: boolean) => {
 	const are = same ? 'are' : 'are not';
 	return `ensure ${filePath} changes ${are} applied`;
@@ -358,6 +290,65 @@ options.forEach(([_fileName, CurPageType]) => {
 // });
 
 // TODO(bret): Make sure only the HTML page that is currently loaded refreshes!!
+
+describeSerial('edit CSS', () => {
+	let background = defaultBGColor;
+	let color = defaultColor;
+
+	let indexPage: IndexPage;
+	test.beforeAll(async ({ page, serverFilePath }) => {
+		indexPage = new IndexPage(page, '', serverFilePath);
+		await indexPage.goto();
+	});
+
+	test('ensure edits are received', async () => {
+		expect(await expectStyle(indexPage.page, 'backgroundColor')).toEqual(
+			background,
+		);
+		expect(await expectStyle(indexPage.page, 'color')).toEqual(color);
+
+		background = 'rgb(0, 0, 255)';
+		await updateCSS(indexPage.page, 'styles.css', indexPage.serverFilePath, {
+			background,
+		});
+		expect(await expectStyle(indexPage.page, 'backgroundColor')).toEqual(
+			background,
+		);
+		expect(await expectStyle(indexPage.page, 'color')).toEqual(color);
+	});
+
+	test('ensure multiple files are received', async () => {
+		expect(await expectStyle(indexPage.page, 'backgroundColor')).toEqual(
+			background,
+		);
+		expect(await expectStyle(indexPage.page, 'color')).toEqual(color);
+
+		color = 'rgb(0, 0, 0)';
+		await updateCSS(indexPage.page, 'styles2.css', indexPage.serverFilePath, {
+			color,
+		});
+		expect(await expectStyle(indexPage.page, 'backgroundColor')).toEqual(
+			background,
+		);
+		expect(await expectStyle(indexPage.page, 'color')).toEqual(color);
+	});
+
+	test('ensure non-included files are ignored client-side', async () => {
+		expect(await expectStyle(indexPage.page, 'backgroundColor')).toEqual(
+			background,
+		);
+		expect(await expectStyle(indexPage.page, 'color')).toEqual(color);
+
+		await updateCSS(indexPage.page, 'styles3.css', indexPage.serverFilePath, {
+			background: 'magenta',
+			color: 'magenta',
+		});
+		expect(await expectStyle(indexPage.page, 'backgroundColor')).toEqual(
+			background,
+		);
+		expect(await expectStyle(indexPage.page, 'color')).toEqual(color);
+	});
+});
 
 describeSerial('edit CSS then HTML', () => {
 	let indexPage: IndexPage;
