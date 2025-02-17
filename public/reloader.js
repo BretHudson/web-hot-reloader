@@ -5,6 +5,10 @@ const origin = `${_origin}:${3008}`;
 
 const SCRIPT_ID = '__web-hot-reloader';
 
+const log = console.log.bind(this, '[WHR]');
+const warn = console.warn.bind(this, '[WHR]');
+const error = console.error.bind(this, '[WHR]');
+
 const queryKey = '_whr';
 const getCacheBust = () => `?${queryKey}=${Date.now().toString(36)}`;
 
@@ -15,11 +19,8 @@ window.addEventListener('DOMContentLoaded', () => {
 const getOrigin = () => self.getAttribute('data-origin');
 
 const updateCSS = (fileName) => {
-	console.log('css', { fileName });
-	// TODO(bret): At some point, set it up to just update the CSS that it needs to...
+	// TODO(bret); this check isn't robust
 	const cssElems = [...document.querySelectorAll(`link`)].filter((link) => {
-		// TODO(bret); this check isn't robust
-		console.log('test', link.href.split('?')[0], fileName);
 		return link.href.split('?')[0].endsWith(fileName);
 	});
 
@@ -39,13 +40,10 @@ const updateCSS = (fileName) => {
 const updateHTML = (fileName, contents) => {
 	const names = ['.html', 'index.html', '/index.html'];
 
-	const targetPath = window.location.origin + '/' + fileName;
-	console.log({ fileName, targetPath });
 	// TODO(bret): Revisit this
-	// TODO(bret): how to handle when trailing slashes aren't enabled on the server?
+	const targetPath = window.location.origin + '/' + fileName;
 	const valid = names.some((name) => {
 		const cur = window.location.origin + window.location.pathname + name;
-		console.log({ cur });
 		return cur === targetPath || cur === targetPath.replace('index.html', '');
 	});
 
@@ -54,7 +52,6 @@ const updateHTML = (fileName, contents) => {
 	const stylesheets = [
 		...document.querySelectorAll('link[rel="stylesheet"]'),
 	].map(({ href }) => href.replace(_origin + '/', ''));
-	console.log(stylesheets);
 	stylesheets
 		.filter((href) => href.includes(queryKey))
 		.map((href) => {
@@ -63,7 +60,6 @@ const updateHTML = (fileName, contents) => {
 			return href.replace(window.location.href, '');
 		})
 		.forEach((href) => {
-			console.log({ href });
 			// TODO(bret): There's gotta be a better way to do this
 			// we really need to construct the full URL so we can compare them, unfortuately. '/css/reset.css' vs './reset.css' vs '../reset.css', etc
 			// TODO(bret): How to handle ./ ?
@@ -85,7 +81,7 @@ const updateHTML = (fileName, contents) => {
 
 const reloadSelf = () => {
 	const fileName = import.meta.url.split('?')[0];
-	console.warn(`Swapped ${fileName}`);
+	warn(`Swapped ${fileName}`);
 	const newScript = document.createElement('script');
 	for (const attr of self.attributes) {
 		if (attr.name === 'src') continue;
@@ -102,7 +98,7 @@ const initWebsocket = () => {
 	window['__whr-socket'] = socket;
 
 	socket.on('connect', () => {
-		console.log('Socket connected');
+		log('Socket connected');
 	});
 
 	socket.on('css-update', (data) => {
@@ -117,7 +113,7 @@ const initWebsocket = () => {
 
 	socket.on('reload-self', (data) => {
 		if (lastJsUpdate && lastJsUpdate !== data.lastJsUpdate) {
-			console.log('Unloading hot loader, about to disconnect');
+			log('Unloading hot loader, about to disconnect');
 			socket.close();
 			reloadSelf();
 		}
@@ -125,22 +121,20 @@ const initWebsocket = () => {
 	});
 
 	socket.on('disconnect', () => {
-		console.log('Socket disconnected');
+		log('Socket disconnected');
 	});
 
-	console.log('Websocket initialized');
+	log('Websocket initialized');
 };
 
 const init = () => {
 	const scriptSrc = `${origin}/socket.io/socket.io.js`;
 	const scriptElem = document.createElement('script');
-	scriptElem.onload = (e) => {
-		initWebsocket();
-	};
+	scriptElem.onload = () => initWebsocket();
 	scriptElem.src = scriptSrc;
 	document.head.append(scriptElem);
 
-	console.log('Hot loader initialized');
+	log('Hot loader initialized');
 };
 
 init();
