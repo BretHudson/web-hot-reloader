@@ -18,23 +18,19 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 const getOrigin = () => self.getAttribute('data-origin');
 
-const updateCSS = (fileName) => {
+const updateElems = (fileName, query, attr) => {
 	// TODO(bret); this check isn't robust
-	const cssElems = [...document.querySelectorAll(`link`)].filter((link) => {
-		return link.href.split('?')[0].endsWith(fileName);
+	const elems = [...document.querySelectorAll(query)].filter((link) => {
+		return link[attr].split('?')[0].endsWith(fileName);
 	});
 
-	const [cssElem] = cssElems;
+	elems.forEach((elem) => {
+		elem[attr] = elem[attr].split('?')[0] + getCacheBust();
+	});
+};
 
-	const newCSS = document.createElement('link');
-	newCSS.rel = cssElem.rel;
-	newCSS.integrity = cssElem.integrity;
-	newCSS.type = cssElem.type;
-	newCSS.href = cssElem.href.split('?')[0] + getCacheBust();
-	newCSS.onload = () => {
-		[...cssElems].forEach((cssElem) => cssElem.remove());
-	};
-	document.head.appendChild(newCSS);
+const updateCSS = (fileName) => {
+	updateElems(fileName, `link`, 'href');
 };
 
 const updateHTML = (fileName, contents) => {
@@ -79,6 +75,10 @@ const updateHTML = (fileName, contents) => {
 		document.head.append(script);
 };
 
+const updateImage = (fileName) => {
+	updateElems(fileName, `img`, 'src');
+};
+
 const reloadSelf = () => {
 	const fileName = import.meta.url.split('?')[0];
 	warn(`Swapped ${fileName}`);
@@ -109,6 +109,11 @@ const initWebsocket = () => {
 	socket.on('html-update', (data) => {
 		const { fileName, contents } = data;
 		updateHTML(fileName, contents);
+	});
+
+	socket.on('image-update', (data) => {
+		const { fileName } = data;
+		updateImage(fileName);
 	});
 
 	socket.on('reload-self', (data) => {
