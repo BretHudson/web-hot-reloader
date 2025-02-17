@@ -161,7 +161,50 @@ export class WHRLocator {
 	}
 }
 
+type CSSProperty = Exclude<keyof CSSStyleDeclaration, number | Symbol>;
+
+const getProperty = async (
+	page: Page,
+	selector: string,
+	property: CSSProperty,
+) => {
+	return await page.locator(selector).evaluate((b, property) => {
+		return window.getComputedStyle(b)[property];
+	}, property);
+};
+
+const testSelectorPropertyMatch = async (
+	page: Page,
+	selector: string,
+	property: CSSProperty,
+	expected: string,
+) => {
+	const value = await getProperty(page, selector, property);
+	if (value === expected) {
+		return {
+			message: () => 'passed',
+			pass: true,
+		};
+	}
+
+	return {
+		// TODO(bret): Better error message
+		message: () => `"${property}" did not match`,
+		pass: false,
+	};
+};
+
 export const expect = baseExpect.extend({
+	async toHaveColor(received: Page, expected: string) {
+		const page = received;
+		return testSelectorPropertyMatch(page, 'body', 'color', expected);
+	},
+
+	async toHaveBackgroundColor(received: Page, expected: string) {
+		const page = received;
+		return testSelectorPropertyMatch(page, 'body', 'backgroundColor', expected);
+	},
+
 	async WHR_toNotBeReloaded(received: WHRLocator) {
 		const { locator, attr } = received;
 		await locator.waitFor({ state: 'attached' });

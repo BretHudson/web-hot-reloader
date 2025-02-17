@@ -13,7 +13,7 @@ import {
 	CSSFile,
 	HTMLFile,
 } from './fixtures';
-import { replacementsRoot, tempDir } from './shared';
+import { replacementsRoot } from './shared';
 
 class IndexPage extends BasePage {
 	static defaultTitle = 'My Site';
@@ -59,6 +59,7 @@ const updateCSS = async (
 		background?: string;
 		color?: string;
 	},
+	expectReload = true,
 ) => {
 	const fileName = path.join('css', _fileName);
 	const cssPath = path.join(serverFilePath.filePath, fileName);
@@ -83,9 +84,6 @@ const updateCSS = async (
 
 	const updateFile = fs.promises.writeFile(cssPath, newContents);
 	await updateFile;
-	console.log({ fileName });
-	const cssElem = new WHRLocator(page, 'href', fileName);
-	await expect(cssElem).WHR_toBeReloaded();
 
 	// const [payload] = await Promise.all([evaluate, updateFile]);
 
@@ -190,10 +188,9 @@ describeSerial('edit CSS', () => {
 	});
 
 	test('ensure edits are received', async () => {
-		expect(await expectStyle(indexPage.page, 'backgroundColor')).toEqual(
-			background,
-		);
-		expect(await expectStyle(indexPage.page, 'color')).toEqual(color);
+		await expect(indexPage.page).toHaveBackgroundColor(background);
+		await expect(indexPage.page).toHaveBackgroundColor(background);
+		await expect(indexPage.page).toHaveColor(color);
 
 		await expect(cssElem).WHR_toNotBeReloaded();
 		await expect(css2Elem).WHR_toNotBeReloaded();
@@ -202,44 +199,51 @@ describeSerial('edit CSS', () => {
 		await updateCSS(indexPage.page, 'styles.css', indexPage.serverFilePath, {
 			background,
 		});
-		expect(await expectStyle(indexPage.page, 'backgroundColor')).toEqual(
-			background,
-		);
-		expect(await expectStyle(indexPage.page, 'color')).toEqual(color);
-	});
-
-	test('ensure multiple files are received', async () => {
-		expect(await expectStyle(indexPage.page, 'backgroundColor')).toEqual(
-			background,
-		);
-		expect(await expectStyle(indexPage.page, 'color')).toEqual(color);
 
 		await expect(cssElem).WHR_toBeReloaded();
 		await expect(css2Elem).WHR_toNotBeReloaded();
+
+		await expect(indexPage.page).toHaveBackgroundColor(background);
+		await expect(indexPage.page).toHaveColor(color);
+	});
+
+	test('ensure multiple files are received', async () => {
+		await expect(indexPage.page).toHaveBackgroundColor(background);
+		await expect(indexPage.page).toHaveColor(color);
+
+		await expect(cssElem).WHR_toBeReloaded();
+		await expect(css2Elem).WHR_toNotBeReloaded();
+
 		color = 'rgb(0, 0, 0)';
 		await updateCSS(indexPage.page, 'styles2.css', indexPage.serverFilePath, {
 			color,
 		});
-		expect(await expectStyle(indexPage.page, 'backgroundColor')).toEqual(
-			background,
-		);
-		expect(await expectStyle(indexPage.page, 'color')).toEqual(color);
+
+		// TODO(bret): Have some sort of check to see if it's been reloaded AGAIN
+		await expect(cssElem).WHR_toBeReloaded();
+		await expect(css2Elem).WHR_toBeReloaded();
+
+		await expect(indexPage.page).toHaveBackgroundColor(background);
+		await expect(indexPage.page).toHaveColor(color);
 	});
 
 	test('ensure non-included files are ignored client-side', async () => {
-		expect(await expectStyle(indexPage.page, 'backgroundColor')).toEqual(
-			background,
-		);
-		expect(await expectStyle(indexPage.page, 'color')).toEqual(color);
+		await expect(indexPage.page).toHaveBackgroundColor(background);
+		await expect(indexPage.page).toHaveColor(color);
 
-		await updateCSS(indexPage.page, 'styles3.css', indexPage.serverFilePath, {
-			background: 'magenta',
-			color: 'magenta',
-		});
-		expect(await expectStyle(indexPage.page, 'backgroundColor')).toEqual(
-			background,
+		await updateCSS(
+			indexPage.page,
+			'styles3.css',
+			indexPage.serverFilePath,
+			{
+				background: 'magenta',
+				color: 'magenta',
+			},
+			false,
 		);
-		expect(await expectStyle(indexPage.page, 'color')).toEqual(color);
+
+		await expect(indexPage.page).toHaveBackgroundColor(background);
+		await expect(indexPage.page).toHaveColor(color);
 	});
 });
 
@@ -255,13 +259,11 @@ describeSerial('edit CSS & image then HTML', () => {
 	}) => {
 		await indexPage.goto();
 
-		expect(await expectStyle(page, 'backgroundColor')).toEqual(
-			'rgb(255, 0, 0)',
-		);
+		await expect(indexPage.page).toHaveBackgroundColor('rgb(255, 0, 0)');
 		await updateCSS(page, 'styles.css', serverFilePath, { background: 'blue' });
-		expect(await expectStyle(page, 'backgroundColor')).toEqual(
-			'rgb(0, 0, 255)',
-		);
+		const cssElem = new WHRLocator(indexPage.page, 'href', 'css/styles.css');
+		await expect(cssElem).WHR_toBeReloaded();
+		await expect(indexPage.page).toHaveBackgroundColor('rgb(0, 0, 255)');
 
 		const imageSrc = 'img/logo.png';
 		const image = new WHRLocator(page, 'src', imageSrc);
@@ -280,9 +282,7 @@ describeSerial('edit CSS & image then HTML', () => {
 		await indexPage.expectTitle('My Cool Site');
 
 		// the background color should NOT be reset!
-		expect(await expectStyle(page, 'backgroundColor')).toEqual(
-			'rgb(0, 0, 255)',
-		);
+		await expect(page).toHaveBackgroundColor('rgb(0, 0, 255)');
 		await expect(image).WHR_toBeReloaded();
 		await expect(favicon).WHR_toBeReloaded();
 	});
@@ -292,8 +292,9 @@ describeSerial('edit CSS & image then HTML', () => {
 		serverFilePath,
 	}) => {
 		await updateCSS(page, 'styles.css', serverFilePath, { background: 'lime' });
-		expect(await expectStyle(page, 'backgroundColor')).toEqual(
-			'rgb(0, 255, 0)',
-		);
+		const cssElem = new WHRLocator(indexPage.page, 'href', 'css/styles.css');
+		// TODO(bret): This is almost definitely a race condition!
+		await expect(cssElem).WHR_toBeReloaded();
+		await expect(page).toHaveBackgroundColor('rgb(0, 255, 0)');
 	});
 });
