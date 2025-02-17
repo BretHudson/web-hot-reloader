@@ -1,25 +1,75 @@
+import fs from 'node:fs';
 import path from 'node:path';
-import { test as base } from '@playwright/test';
+import { test as base, type Page } from '@playwright/test';
 
-import { tempRoot, SERVER_PORT, tempDir } from './shared';
+import { tempRoot, SERVER_PORT, tempDir, templateRoot } from './shared';
+
+export interface ServerFilePath {
+	path: string;
+	url: string;
+	filePath: string;
+}
 
 export interface Fixtures {
-	serverFilePath: {
-		url: string;
-		filePath: string;
-	};
+	serverFilePath: ServerFilePath;
 }
 
 let count = 0;
 
+const constructServerFilePath = () => {
+	const _path = `test-${count++}`;
+	const data = {
+		path: _path,
+		url: `http://localhost:${SERVER_PORT}/${tempDir}/${_path}/`,
+		filePath: path.join(tempRoot, _path),
+	};
+
+	// if (!fs.existsSync(data.filePath)) {
+	// 	fs.cpSync(templateRoot, data.filePath, {
+	// 		recursive: true,
+	// 	});
+	// }
+
+	return data;
+};
+
 export * from '@playwright/test';
 export const test = base.extend<Fixtures>({
-	serverFilePath: async ({}, use) => {
-		const _path = `test-${count++}`;
-		const data = {
-			url: `http://localhost:${SERVER_PORT}/${tempDir}/${_path}/`,
-			filePath: path.join(tempRoot, _path),
-		};
-		await use(data);
-	},
+	serverFilePath: [
+		async ({}, use) => {
+			const data = constructServerFilePath();
+			await use(data);
+		},
+		{ option: true, scope: 'test' },
+	],
 });
+
+export const describeSerial = (title: string, callback: () => void) => {
+	test.describe(title, async () => {
+		let page: Page;
+
+		const serverFilePath = constructServerFilePath();
+
+		test.use({
+			serverFilePath: async ({}, use) => {
+				return use(serverFilePath);
+			},
+			page: async ({ browser }, use) => {
+				page ??= await browser.newPage();
+				return use(page);
+			},
+		});
+
+		test.describe.configure({ mode: 'serial' });
+
+		test.beforeAll(async ({ browser }) => {
+			page ??= await browser.newPage();
+		});
+
+		test.afterAll(async () => {
+			await page.close();
+		});
+
+		callback();
+	});
+};

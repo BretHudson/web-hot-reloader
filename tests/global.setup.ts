@@ -4,9 +4,12 @@ import { expect, test as setup } from './fixtures';
 import { SERVER_PORT, tempRoot, WHR_PORT } from './shared';
 
 setup('setup', async ({ request }) => {
-	if (!fs.existsSync(tempRoot)) {
-		fs.mkdirSync(tempRoot);
+	if (fs.existsSync(tempRoot)) {
+		fs.rmSync(tempRoot, {
+			recursive: true,
+		});
 	}
+	fs.mkdirSync(tempRoot);
 
 	// ensure both servers are up & running
 	{
