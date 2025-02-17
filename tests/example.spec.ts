@@ -91,15 +91,20 @@ const expectStyle = async (
 	return computedStyle;
 };
 
-const waitForWebSocketEvent = (page: Page, event: string) => {
-	return page.evaluate(() => {
-		return new Promise<{ eventName: string; data: {} }>((resolve) => {
-			const _window = window as typeof window & { '__whr-socket': any };
-			_window['__whr-socket'].onAny((eventName, data) => {
-				resolve({ eventName, data });
+const waitForWebSocketEvent = (page: Page, event: string, fileName: string) => {
+	return page.evaluate(
+		({ event, fileName }) => {
+			return new Promise<{ eventName: string; data: {} }>((resolve) => {
+				const _window = window as typeof window & { '__whr-socket': any };
+				_window['__whr-socket'].onAny((eventName, data) => {
+					if (eventName === event && data.fileName === fileName) {
+						resolve({ eventName, data });
+					}
+				});
 			});
-		});
-	});
+		},
+		{ event, fileName },
+	);
 };
 
 type CSSFile = 'styles.css' | 'styles2.css' | 'styles3.css';
@@ -117,8 +122,6 @@ const updateCSS = async (
 	const cssPath = path.join(serverFilePath.filePath, fileName);
 	const cssContents = await fs.promises.readFile(cssPath, 'utf-8');
 
-	const evaluate = waitForWebSocketEvent(page, 'css-update');
-
 	let newContents = cssContents;
 	const { background, color } = options;
 	if (background) {
@@ -131,6 +134,9 @@ const updateCSS = async (
 		newContents = newContents.replace(/color: .+;/, `color: ${color};`);
 	}
 
+	const expectedFileName = `${tempDir}/${serverFilePath.path}/${fileName}`;
+	const evaluate = waitForWebSocketEvent(page, 'css-update', expectedFileName);
+
 	const updateFile = fs.promises.writeFile(cssPath, newContents);
 
 	const [payload] = await Promise.all([evaluate, updateFile]);
@@ -138,7 +144,7 @@ const updateCSS = async (
 	expect(payload).toMatchObject({
 		eventName: 'css-update',
 		data: {
-			fileName: `${tempDir}/${serverFilePath.path}/${fileName}`,
+			fileName: expectedFileName,
 		},
 	});
 
@@ -156,7 +162,10 @@ const updateHTML = async (
 	const htmlContents = await fs.promises.readFile(htmlPath, 'utf-8');
 
 	const { page } = basePage;
-	const evaluate = waitForWebSocketEvent(page, 'html-update');
+
+	const expectedFileName = `${tempDir}/${serverFilePath.path}/${fileName}`;
+	const evaluate = waitForWebSocketEvent(page, 'html-update', expectedFileName);
+
 	const updateFile = fs.promises.writeFile(htmlPath, replacement(htmlContents));
 
 	const [payload] = await Promise.all([evaluate, updateFile]);
@@ -164,7 +173,7 @@ const updateHTML = async (
 	expect(payload).toMatchObject({
 		eventName: 'html-update',
 		data: {
-			fileName: `${tempDir}/${serverFilePath.path}/${fileName}`,
+			fileName: expectedFileName,
 		},
 	});
 
