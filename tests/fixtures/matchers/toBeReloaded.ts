@@ -1,11 +1,18 @@
 import { expect as baseExpect } from '@playwright/test';
 
-import type { WHRLocator } from '../helpers/pages';
+import type { WHRLocator } from '../../helpers/pages';
 
 export const expect = baseExpect.extend({
 	async WHR_toNotBeReloaded(received: WHRLocator) {
 		const { locator, attr } = received;
-		await locator.waitFor({ state: 'attached' });
+		try {
+			await locator.waitFor({ state: 'attached' });
+		} catch (e) {
+			return {
+				message: () => 'element not on page',
+				pass: false,
+			};
+		}
 		const link = await locator.getAttribute(attr);
 		if (!link) {
 			return {
@@ -31,9 +38,11 @@ export const expect = baseExpect.extend({
 			};
 		}
 		try {
+			const handle = await locator.elementHandle();
+
 			const good = await page.waitForFunction(
-				(el) => el?.getAttribute(attr)?.includes('?'),
-				await locator.elementHandle(),
+				({ el, attr }) => el?.getAttribute(attr)?.includes('?'),
+				{ el: handle, attr },
 				{ timeout: 10e3 },
 			);
 
@@ -41,10 +50,10 @@ export const expect = baseExpect.extend({
 				message: () => 'passed',
 				pass: Boolean(good),
 			};
-		} catch {
+		} catch (e) {
 			return {
 				message: () => 'element has not been reloaded via WHR',
-				pass: true,
+				pass: false,
 			};
 		}
 	},

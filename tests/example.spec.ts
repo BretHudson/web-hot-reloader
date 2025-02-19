@@ -1,43 +1,18 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import type { Page } from '@playwright/test';
-
 import { test, expect } from './fixtures/fixtures';
 import { replacementsRoot } from './shared';
 import { type ServerFilePath } from './helpers/server-path';
 import {
-	BasePage,
-	type HTMLFile,
+	type BasePage,
+	IndexPage,
+	PageTwoPage,
+	SubDirIndexPage,
 	type CSSFile,
 	type WHRLocator,
 } from './helpers/pages';
 import { describeSerial } from './helpers/describe-serial';
-
-class IndexPage extends BasePage {
-	static defaultTitle = 'My Site';
-	static updatedTitle = 'My Cool Site';
-	static filePath: HTMLFile = 'index.html';
-	curTitle = IndexPage.defaultTitle;
-}
-
-class PageTwoPage extends BasePage {
-	static defaultTitle = 'Page Two';
-	static updatedTitle = 'Page II';
-	static filePath: HTMLFile = 'page-two.html';
-	curTitle = PageTwoPage.defaultTitle;
-}
-
-class SubDirIndexPage extends BasePage {
-	static defaultTitle = 'A Subdirectory';
-	static updatedTitle = 'A Sub Dir';
-	static filePath: HTMLFile = 'sub-dir/index.html';
-	curTitle = SubDirIndexPage.defaultTitle;
-
-	constructor(page: Page, path: string, serverFilePath: ServerFilePath) {
-		super(page, 'sub-dir/' + path, serverFilePath);
-	}
-}
 
 const updateCSS = async (
 	_fileName: CSSFile,
@@ -86,29 +61,28 @@ const replaceImage = async (src: string, serverFilePath: ServerFilePath) => {
 };
 
 test.describe('Image loading', () => {
-	test('replace image', async ({ page, serverFilePath }) => {
-		const indexPage = new IndexPage(page, '', serverFilePath);
-		await indexPage.goto();
+	test('replace image', async ({ site }) => {
+		await site.goto('index');
 
-		await expect(indexPage).toHaveTitle(IndexPage.defaultTitle);
+		await expect(site.page).toHaveTitle(IndexPage.defaultTitle);
 
 		const imageSrc = 'img/logo.png';
-		const image = indexPage.getImg(imageSrc);
-		await expect(image).WHR_toNotBeReloaded();
-		await replaceImage(imageSrc, serverFilePath);
-		await expect(image).WHR_toBeReloaded();
+		const image = site.getImg(imageSrc);
+		await expect(image.locator).WHR_toNotBeReloaded();
+		await image.replace();
+		// await replaceImage(imageSrc, site.serverFilePath);
+		await expect(image.locator).WHR_toBeReloaded();
 	});
 
-	test('replace favicon', async ({ page, serverFilePath }) => {
-		const indexPage = new IndexPage(page, '', serverFilePath);
-		await indexPage.goto();
+	test('replace favicon', async ({ site }) => {
+		await site.goto('index');
 
-		await expect(indexPage).toHaveTitle(IndexPage.defaultTitle);
+		await expect(site.page).toHaveTitle(IndexPage.defaultTitle);
 
 		const faviconSrc = 'img/favicon.png';
-		const favicon = indexPage.getFavicon(faviconSrc);
+		const favicon = site.getFavicon(faviconSrc);
 		await expect(favicon).WHR_toNotBeReloaded();
-		await replaceImage(faviconSrc, serverFilePath);
+		await site.replaceImage(faviconSrc);
 		await expect(favicon).WHR_toBeReloaded();
 	});
 });
@@ -123,8 +97,8 @@ options.forEach(([_fileName, CurPageType]) => {
 		fileNames.forEach((fileName) => {
 			describeSerial(`access as "/${fileName}"`, () => {
 				let basePage: BasePage;
-				test.beforeAll(async ({ page, serverFilePath }) => {
-					basePage = new CurPageType(page, fileName, serverFilePath);
+				test.beforeAll(async ({ site }) => {
+					basePage = new CurPageType(site.page, fileName, site.serverFilePath);
 					await basePage.goto();
 				});
 
@@ -150,8 +124,8 @@ describeSerial('edit CSS', () => {
 	let indexPage: IndexPage;
 	let cssElem: WHRLocator;
 	let css2Elem: WHRLocator;
-	test.beforeAll(async ({ page, serverFilePath }) => {
-		indexPage = new IndexPage(page, '', serverFilePath);
+	test.beforeAll(async ({ site }) => {
+		indexPage = new IndexPage(site.page, '', site.serverFilePath);
 		await indexPage.goto();
 
 		cssElem = indexPage.getCSS('styles.css');
@@ -214,8 +188,8 @@ describeSerial('edit CSS', () => {
 
 describeSerial('edit CSS & image then HTML', () => {
 	let indexPage: IndexPage;
-	test.beforeAll(async ({ page, serverFilePath }) => {
-		indexPage = new IndexPage(page, '', serverFilePath);
+	test.beforeAll(async ({ site }) => {
+		indexPage = new IndexPage(site.page, '', site.serverFilePath);
 		await indexPage.goto();
 	});
 
@@ -240,9 +214,9 @@ describeSerial('edit CSS & image then HTML', () => {
 		await replaceImage(faviconSrc, indexPage.serverFilePath);
 		await expect(favicon).WHR_toBeReloaded();
 
-		await expect(indexPage).toHaveTitle(IndexPage.defaultTitle);
+		await expect(indexPage).toHavePageTitle(IndexPage.defaultTitle);
 		await IndexPage.update(indexPage, 'My Cool Site');
-		await expect(indexPage).toHaveTitle('My Cool Site');
+		await expect(indexPage).toHavePageTitle('My Cool Site');
 
 		// the background color should NOT be reset!
 		await expect(indexPage).toHaveBackgroundColor('rgb(0, 0, 255)');

@@ -1,9 +1,9 @@
 import { expect as baseExpect } from '@playwright/test';
 
-import type { BasePage } from '../helpers/pages';
+import type { BasePage } from '../../helpers/pages';
 
 export const expect = baseExpect.extend({
-	async toHaveTitle(received: BasePage, expected: string) {
+	async toHavePageTitle(received: BasePage, expected: string) {
 		const _expected = expected ?? received.curTitle;
 
 		const pass = await baseExpect(received.page)
