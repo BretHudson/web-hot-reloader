@@ -1,10 +1,10 @@
 import { expect as baseExpect } from '@playwright/test';
 
-import type { WHRLocator } from '../../helpers/pages';
+import type { ReloadableAsset } from '../../helpers/pages';
 
 export const expect = baseExpect.extend({
-	async WHR_toNotBeReloaded(received: WHRLocator) {
-		const { locator, attr } = received;
+	async WHR_toNotBeReloaded(received: ReloadableAsset) {
+		const { locator, attr } = received.locator;
 		try {
 			await locator.waitFor({ state: 'attached' });
 		} catch (e) {
@@ -27,8 +27,8 @@ export const expect = baseExpect.extend({
 		};
 	},
 
-	async WHR_toBeReloaded(received: WHRLocator) {
-		const { page, locator, attr } = received;
+	async WHR_toBeReloaded(received: ReloadableAsset) {
+		const { page, locator, attr } = received.locator;
 		try {
 			await locator.waitFor({ state: 'attached', timeout: 3e3 });
 		} catch (e) {

@@ -2,7 +2,7 @@ import { test as baseTest, mergeExpects } from '@playwright/test';
 
 import { expect as toHaveColor } from './matchers/toHaveColor';
 import { expect as toHaveBackgroundColor } from './matchers/toHaveBackgroundColor';
-import { expect as toHavePageTitle } from './matchers/toHaveTitle';
+import { expect as toHavePageTitle } from './matchers/toHavePageTitle';
 import { expect as toBeReloaded } from './matchers/toBeReloaded';
 
 import {

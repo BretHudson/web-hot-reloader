@@ -1,45 +1,12 @@
-import fs from 'node:fs';
-import path from 'node:path';
-
 import { test, expect } from './fixtures/fixtures';
-import { replacementsRoot } from './shared';
-import { type ServerFilePath } from './helpers/server-path';
 import {
 	type BasePage,
 	IndexPage,
 	PageTwoPage,
 	SubDirIndexPage,
-	type CSSFile,
-	type WHRLocator,
+	type CSSAsset,
 } from './helpers/pages';
 import { describeSerial } from './helpers/describe-serial';
-
-const updateCSS = async (
-	_fileName: CSSFile,
-	serverFilePath: ServerFilePath,
-	options: {
-		background?: string;
-		color?: string;
-	},
-) => {
-	const fileName = path.join('css', _fileName);
-	const cssPath = path.join(serverFilePath.filePath, fileName);
-	const cssContents = await fs.promises.readFile(cssPath, 'utf-8');
-
-	let newContents = cssContents;
-	const { background, color } = options;
-	if (background) {
-		newContents = newContents.replace(
-			/background-color: .+;/,
-			`background-color: ${background};`,
-		);
-	}
-	if (color) {
-		newContents = newContents.replace(/color: .+;/, `color: ${color};`);
-	}
-
-	return fs.promises.writeFile(cssPath, newContents);
-};
 
 const defaultBGColor = 'rgb(255, 0, 0)';
 const defaultColor = 'rgb(255, 255, 255)';
@@ -54,35 +21,26 @@ const options = [
 	['/sub-dir/index.html', SubDirIndexPage],
 ] as const;
 
-const replaceImage = async (src: string, serverFilePath: ServerFilePath) => {
-	const a = path.join(replacementsRoot, src);
-	const b = path.join(serverFilePath.filePath, src);
-	await fs.promises.copyFile(a, b);
-};
-
 test.describe('Image loading', () => {
-	test('replace image', async ({ site }) => {
+	test.beforeEach(async ({ site }) => {
 		await site.goto('index');
 
 		await expect(site.page).toHaveTitle(IndexPage.defaultTitle);
+	});
 
-		const imageSrc = 'img/logo.png';
-		const image = site.getImg(imageSrc);
-		await expect(image.locator).WHR_toNotBeReloaded();
+	test('replace image', async ({ site }) => {
+		const image = site.getImg('img/logo.png');
+
+		await expect(image).WHR_toNotBeReloaded();
 		await image.replace();
-		// await replaceImage(imageSrc, site.serverFilePath);
-		await expect(image.locator).WHR_toBeReloaded();
+		await expect(image).WHR_toBeReloaded();
 	});
 
 	test('replace favicon', async ({ site }) => {
-		await site.goto('index');
+		const favicon = site.getFavicon('img/favicon.png');
 
-		await expect(site.page).toHaveTitle(IndexPage.defaultTitle);
-
-		const faviconSrc = 'img/favicon.png';
-		const favicon = site.getFavicon(faviconSrc);
 		await expect(favicon).WHR_toNotBeReloaded();
-		await site.replaceImage(faviconSrc);
+		await favicon.replace();
 		await expect(favicon).WHR_toBeReloaded();
 	});
 });
@@ -98,7 +56,7 @@ options.forEach(([_fileName, CurPageType]) => {
 			describeSerial(`access as "/${fileName}"`, () => {
 				let basePage: BasePage;
 				test.beforeAll(async ({ site }) => {
-					basePage = new CurPageType(site.page, fileName, site.serverFilePath);
+					basePage = new CurPageType(site, fileName);
 					await basePage.goto();
 				});
 
@@ -122,14 +80,14 @@ describeSerial('edit CSS', () => {
 	let color = defaultColor;
 
 	let indexPage: IndexPage;
-	let cssElem: WHRLocator;
-	let css2Elem: WHRLocator;
+	let cssElem: CSSAsset;
+	let css2Elem: CSSAsset;
 	test.beforeAll(async ({ site }) => {
-		indexPage = new IndexPage(site.page, '', site.serverFilePath);
+		indexPage = new IndexPage(site, '');
 		await indexPage.goto();
 
-		cssElem = indexPage.getCSS('styles.css');
-		css2Elem = indexPage.getCSS('styles2.css');
+		cssElem = site.getCSS('styles.css');
+		css2Elem = site.getCSS('styles2.css');
 	});
 
 	test('ensure edits are received', async () => {
@@ -141,10 +99,7 @@ describeSerial('edit CSS', () => {
 		await expect(css2Elem).WHR_toNotBeReloaded();
 
 		background = 'rgb(0, 0, 255)';
-		await updateCSS('styles.css', indexPage.serverFilePath, {
-			background,
-		});
-
+		await cssElem.update({ background });
 		await expect(cssElem).WHR_toBeReloaded();
 		await expect(css2Elem).WHR_toNotBeReloaded();
 
@@ -160,9 +115,7 @@ describeSerial('edit CSS', () => {
 		await expect(css2Elem).WHR_toNotBeReloaded();
 
 		color = 'rgb(0, 0, 0)';
-		await updateCSS('styles2.css', indexPage.serverFilePath, {
-			color,
-		});
+		await css2Elem.update({ color });
 
 		// TODO(bret): Have some sort of check to see if it's been reloaded AGAIN
 		await expect(cssElem).WHR_toBeReloaded();
@@ -173,10 +126,12 @@ describeSerial('edit CSS', () => {
 	});
 
 	test('ensure non-included files are ignored client-side', async () => {
+		const { site } = indexPage;
+
 		await expect(indexPage).toHaveBackgroundColor(background);
 		await expect(indexPage).toHaveColor(color);
 
-		await updateCSS('styles3.css', indexPage.serverFilePath, {
+		await site.getCSS('styles3.css').update({
 			background: 'magenta',
 			color: 'magenta',
 		});
@@ -189,29 +144,29 @@ describeSerial('edit CSS', () => {
 describeSerial('edit CSS & image then HTML', () => {
 	let indexPage: IndexPage;
 	test.beforeAll(async ({ site }) => {
-		indexPage = new IndexPage(site.page, '', site.serverFilePath);
+		indexPage = new IndexPage(site, '');
 		await indexPage.goto();
 	});
 
 	test("ensure HTML reload doesn't override reloaded assets", async () => {
+		const { site } = indexPage;
+
 		await expect(indexPage).toHaveBackgroundColor('rgb(255, 0, 0)');
-		await updateCSS('styles.css', indexPage.serverFilePath, {
-			background: 'blue',
-		});
-		const cssElem = indexPage.getCSS('styles.css');
+		const cssElem = site.getCSS('styles.css');
+		await cssElem.update({ background: 'blue' });
 		await expect(cssElem).WHR_toBeReloaded();
 		await expect(indexPage).toHaveBackgroundColor('rgb(0, 0, 255)');
 
 		const imageSrc = 'img/logo.png';
-		const image = indexPage.getImg(imageSrc);
+		const image = site.getImg(imageSrc);
 		await expect(image).WHR_toNotBeReloaded();
-		await replaceImage(imageSrc, indexPage.serverFilePath);
+		await image.replace();
 		await expect(image).WHR_toBeReloaded();
 
 		const faviconSrc = 'img/favicon.png';
-		const favicon = indexPage.getFavicon(faviconSrc);
+		const favicon = site.getFavicon(faviconSrc);
 		await expect(favicon).WHR_toNotBeReloaded();
-		await replaceImage(faviconSrc, indexPage.serverFilePath);
+		await favicon.replace();
 		await expect(favicon).WHR_toBeReloaded();
 
 		await expect(indexPage).toHavePageTitle(IndexPage.defaultTitle);
@@ -225,11 +180,11 @@ describeSerial('edit CSS & image then HTML', () => {
 	});
 
 	test('ensure new asset changes are applied', async () => {
-		await updateCSS('styles.css', indexPage.serverFilePath, {
-			background: 'lime',
-		});
-		const cssElem = indexPage.getCSS('styles.css');
-		// TODO(bret): This is almost definitely a race condition!
+		const { site } = indexPage;
+
+		const cssElem = site.getCSS('styles.css');
+		await cssElem.update({ background: 'lime' });
+		// TODO(bret): This is almost definitely a race condition! (because it's been reloaded before)
 		await expect(cssElem).WHR_toBeReloaded();
 		await expect(indexPage).toHaveBackgroundColor('rgb(0, 255, 0)');
 	});

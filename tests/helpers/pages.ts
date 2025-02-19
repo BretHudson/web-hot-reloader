@@ -62,13 +62,11 @@ const updateHTML = async (
 export class WHRLocator {
 	locator: Locator;
 	attr: string;
-	basePage: BasePage;
 	page: Page;
-	constructor(basePage: BasePage, attr: string, filePath: string) {
+	constructor(site: Site, attr: string, filePath: string) {
 		const selector = `[${attr}^="${filePath.replaceAll('\\', '/')}"]`;
-		const { page } = basePage;
+		const { page } = site;
 		this.locator = page.locator(selector);
-		this.basePage = basePage;
 		this.attr = attr;
 		this.page = page;
 	}
@@ -79,19 +77,21 @@ export abstract class BasePage {
 	static updatedTitle: string;
 	static filePath: HTMLFile;
 
+	site: Site;
 	page: Page;
 	path: string;
 	serverFilePath: ServerFilePath;
 	curTitle: string;
 
-	constructor(page: Page, path: string, serverFilePath) {
-		this.page = page;
+	constructor(site: Site, path: string) {
+		this.site = site;
+		this.page = site.page;
 		this.path = path;
-		this.serverFilePath = serverFilePath;
+		this.serverFilePath = site.serverFilePath;
 
 		// TODO(bret): Move this, I don't love it here
-		if (fs.existsSync(serverFilePath.filePath)) return;
-		fs.cpSync(templateRoot, serverFilePath.filePath, {
+		if (fs.existsSync(site.serverFilePath.filePath)) return;
+		fs.cpSync(templateRoot, site.serverFilePath.filePath, {
 			recursive: true,
 		});
 	}
@@ -102,15 +102,15 @@ export abstract class BasePage {
 	}
 
 	getCSS(fileName: CSSFile) {
-		return new WHRLocator(this, 'href', `css/${fileName}`);
+		return new WHRLocator(this.site, 'href', `css/${fileName}`);
 	}
 
 	getImg(fileName: string) {
-		return new WHRLocator(this, 'src', fileName);
+		return new WHRLocator(this.site, 'src', fileName);
 	}
 
 	getFavicon(fileName: string) {
-		return new WHRLocator(this, 'href', fileName);
+		return new WHRLocator(this.site, 'href', fileName);
 	}
 
 	static async update(page: BasePage, pageTitle: string = this.updatedTitle) {
@@ -149,25 +149,28 @@ export class SubDirIndexPage extends BasePage {
 	static filePath: HTMLFile = 'sub-dir/index.html';
 	curTitle = SubDirIndexPage.defaultTitle;
 
-	constructor(page: Page, path: string, serverFilePath: ServerFilePath) {
-		super(page, 'sub-dir/' + path, serverFilePath);
+	constructor(site: Site, path: string) {
+		super(site, 'sub-dir/' + path);
 	}
 }
 
 type SitePageName = 'index' | 'page-two' | 'sub-dir/index';
 
-export abstract class ReplaceableAsset {
+export class ReloadableAsset {
 	site: Site;
 	src: string;
 	locator: WHRLocator;
+	attr: string;
 
-	constructor(site: Site, src: string) {
+	constructor(site: Site, src: string, attr: string) {
 		this.site = site;
 		this.src = src;
-		const tempPage = new IndexPage(site.page, '', site.serverFilePath);
-		this.locator = new WHRLocator(tempPage, 'src', src);
+		this.attr = attr;
+		this.locator = new WHRLocator(site, attr, src);
 	}
+}
 
+export class ReplaceableAsset extends ReloadableAsset {
 	async replace() {
 		const a = path.join(replacementsRoot, this.src);
 		const b = path.join(this.site.serverFilePath.filePath, this.src);
@@ -175,7 +178,31 @@ export abstract class ReplaceableAsset {
 	}
 }
 
-export class Image extends ReplaceableAsset {}
+export class CSSAsset extends ReloadableAsset {
+	constructor(site: Site, fileName: string) {
+		super(site, fileName, 'href');
+	}
+
+	async update(options: { background?: string; color?: string }) {
+		const fileName = this.src.replace('/', path.sep);
+		const cssPath = path.join(this.site.serverFilePath.filePath, fileName);
+		const cssContents = await fs.promises.readFile(cssPath, 'utf-8');
+
+		let newContents = cssContents;
+		const { background, color } = options;
+		if (background) {
+			newContents = newContents.replace(
+				/background-color: .+;/,
+				`background-color: ${background};`,
+			);
+		}
+		if (color) {
+			newContents = newContents.replace(/color: .+;/, `color: ${color};`);
+		}
+
+		return fs.promises.writeFile(cssPath, newContents);
+	}
+}
 
 export class Site {
 	page: Page;
@@ -193,17 +220,15 @@ export class Site {
 	}
 
 	getCSS(fileName: CSSFile) {
-		const tempPage = new IndexPage(this.page, '', this.serverFilePath);
-		return new WHRLocator(tempPage, 'href', `css/${fileName}`);
+		return new CSSAsset(this, `css/${fileName}`);
 	}
 
 	getImg(fileName: string) {
-		return new Image(this, fileName);
+		return new ReplaceableAsset(this, fileName, 'src');
 	}
 
 	getFavicon(fileName: string) {
-		const tempPage = new IndexPage(this.page, '', this.serverFilePath);
-		return new WHRLocator(tempPage, 'href', fileName);
+		return new ReplaceableAsset(this, fileName, 'href');
 	}
 
 	async goto(page: SitePageName) {
