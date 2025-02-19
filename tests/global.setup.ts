@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 
-import { expect, test as setup } from './fixtures';
+import { expect, test as setup } from './fixtures/fixtures';
 import { SERVER_PORT, tempRoot, WHR_PORT } from './shared';
 
 setup('setup', async ({ request }) => {

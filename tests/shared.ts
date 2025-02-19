@@ -11,5 +11,6 @@ export const WHR_PORT = 3040;
 export const siteRootDir = 'tests/site';
 export const tempDir = 'temp';
 export const siteRoot = path.join(rootPath, siteRootDir);
+export const replacementsRoot = path.join(siteRoot, '_replacements');
 export const templateRoot = path.join(siteRoot, '_template');
 export const tempRoot = path.join(siteRoot, tempDir);
