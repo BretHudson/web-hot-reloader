@@ -11,10 +11,14 @@ const expectTitle = async (
 	page: Page,
 	expected: string,
 ) => {
+	let message;
 	const pass = await baseExpect(page)
 		.toHaveTitle(expected)
 		.then(() => !test.isNot)
-		.catch(() => test.isNot);
+		.catch((e) => {
+			message = e.message;
+			return test.isNot;
+		});
 
 	return {
 		pass,
@@ -24,13 +28,7 @@ const expectTitle = async (
 				isNot: test.isNot,
 			});
 
-			return (
-				hint +
-				'\n\n' +
-				`Expected: page to${not} have title ${test.utils.printExpected(
-					expected,
-				)}`
-			);
+			return hint + '\n\n' + message;
 		},
 	};
 };
