@@ -1,9 +1,8 @@
 import { test as baseTest, mergeExpects } from '@playwright/test';
 
-import { expect as toHaveColor } from './matchers/toHaveColor';
-import { expect as toHaveBackgroundColor } from './matchers/toHaveBackgroundColor';
-import { expect as toHavePageTitle } from './matchers/toHavePageTitle';
 import { expect as toBeReloaded } from './matchers/toBeReloaded';
+import { expect as toHavePageTitle } from './matchers/toHavePageTitle';
+import { expect as toHaveStyles } from './matchers/toHaveStyles';
 
 import {
 	constructServerFilePath,
@@ -34,9 +33,4 @@ export const test = baseTest.extend<Fixtures>({
 	],
 });
 
-export const expect = mergeExpects(
-	toHaveColor,
-	toHaveBackgroundColor,
-	toHavePageTitle,
-	toBeReloaded,
-);
+export const expect = mergeExpects(toBeReloaded, toHavePageTitle, toHaveStyles);

@@ -76,7 +76,7 @@ options.forEach(([_fileName, CurPageType]) => {
 });
 
 describeSerial('edit CSS', () => {
-	let background = defaultBGColor;
+	let backgroundColor = defaultBGColor;
 	let color = defaultColor;
 
 	let indexPage: IndexPage;
@@ -91,25 +91,30 @@ describeSerial('edit CSS', () => {
 	});
 
 	test('ensure edits are received', async () => {
-		await expect(indexPage).toHaveBackgroundColor(background);
-		await expect(indexPage).toHaveBackgroundColor(background);
-		await expect(indexPage).toHaveColor(color);
+		await expect(indexPage).toHaveStyles({
+			backgroundColor,
+			color,
+		});
 
 		await expect(cssElem).WHR_toNotBeReloaded();
 		await expect(css2Elem).WHR_toNotBeReloaded();
 
-		background = 'rgb(0, 0, 255)';
-		await cssElem.update({ background });
+		backgroundColor = 'rgb(0, 0, 255)';
+		await cssElem.update({ background: backgroundColor });
 		await expect(cssElem).WHR_toBeReloaded();
 		await expect(css2Elem).WHR_toNotBeReloaded();
 
-		await expect(indexPage).toHaveBackgroundColor(background);
-		await expect(indexPage).toHaveColor(color);
+		await expect(indexPage).toHaveStyles({
+			backgroundColor,
+			color,
+		});
 	});
 
 	test('ensure multiple files are received', async () => {
-		await expect(indexPage).toHaveBackgroundColor(background);
-		await expect(indexPage).toHaveColor(color);
+		await expect(indexPage).toHaveStyles({
+			backgroundColor,
+			color,
+		});
 
 		await expect(cssElem).WHR_toBeReloaded();
 		await expect(css2Elem).WHR_toNotBeReloaded();
@@ -121,23 +126,29 @@ describeSerial('edit CSS', () => {
 		await expect(cssElem).WHR_toBeReloaded();
 		await expect(css2Elem).WHR_toBeReloaded();
 
-		await expect(indexPage).toHaveBackgroundColor(background);
-		await expect(indexPage).toHaveColor(color);
+		await expect(indexPage).toHaveStyles({
+			backgroundColor,
+			color,
+		});
 	});
 
 	test('ensure non-included files are ignored client-side', async () => {
 		const { site } = indexPage;
 
-		await expect(indexPage).toHaveBackgroundColor(background);
-		await expect(indexPage).toHaveColor(color);
+		await expect(indexPage).toHaveStyles({
+			backgroundColor,
+			color,
+		});
 
 		await site.getCSS('styles3.css').update({
 			background: 'magenta',
 			color: 'magenta',
 		});
 
-		await expect(indexPage).toHaveBackgroundColor(background);
-		await expect(indexPage).toHaveColor(color);
+		await expect(indexPage).toHaveStyles({
+			backgroundColor,
+			color,
+		});
 	});
 });
 
@@ -151,11 +162,15 @@ describeSerial('edit CSS & image then HTML', () => {
 	test("ensure HTML reload doesn't override reloaded assets", async () => {
 		const { site } = indexPage;
 
-		await expect(indexPage).toHaveBackgroundColor('rgb(255, 0, 0)');
+		await expect(indexPage).toHaveStyles({
+			backgroundColor: 'rgb(255, 0, 0)',
+		});
 		const cssElem = site.getCSS('styles.css');
 		await cssElem.update({ background: 'blue' });
 		await expect(cssElem).WHR_toBeReloaded();
-		await expect(indexPage).toHaveBackgroundColor('rgb(0, 0, 255)');
+		await expect(indexPage).toHaveStyles({
+			backgroundColor: 'rgb(0, 0, 255)',
+		});
 
 		const imageSrc = 'img/logo.png';
 		const image = site.getImg(imageSrc);
@@ -174,7 +189,9 @@ describeSerial('edit CSS & image then HTML', () => {
 		await expect(indexPage).toHavePageTitle('My Cool Site');
 
 		// the background color should NOT be reset!
-		await expect(indexPage).toHaveBackgroundColor('rgb(0, 0, 255)');
+		await expect(indexPage).toHaveStyles({
+			backgroundColor: 'rgb(0, 0, 255)',
+		});
 		await expect(image).WHR_toBeReloaded();
 		await expect(favicon).WHR_toBeReloaded();
 	});
@@ -186,6 +203,8 @@ describeSerial('edit CSS & image then HTML', () => {
 		await cssElem.update({ background: 'lime' });
 		// TODO(bret): This is almost definitely a race condition! (because it's been reloaded before)
 		await expect(cssElem).WHR_toBeReloaded();
-		await expect(indexPage).toHaveBackgroundColor('rgb(0, 255, 0)');
+		await expect(indexPage).toHaveStyles({
+			backgroundColor: 'rgb(0, 255, 0)',
+		});
 	});
 });
