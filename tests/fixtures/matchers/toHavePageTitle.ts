@@ -1,37 +1,53 @@
-import { expect as baseExpect } from '@playwright/test';
+import {
+	expect as baseExpect,
+	type ExpectMatcherState,
+	type Page,
+} from '@playwright/test';
 
-import type { BasePage } from '../../helpers/pages';
+import type { BasePage, Site } from '../../helpers/pages';
+
+const expectTitle = async (
+	test: ExpectMatcherState,
+	page: Page,
+	expected: string,
+) => {
+	const pass = await baseExpect(page)
+		.toHaveTitle(expected)
+		.then(() => !test.isNot)
+		.catch(() => test.isNot);
+
+	return {
+		pass,
+		message: () => {
+			const not = test.isNot ? ' not' : '';
+			const hint = test.utils.matcherHint('toHaveTitle', undefined, undefined, {
+				isNot: test.isNot,
+			});
+
+			return (
+				hint +
+				'\n\n' +
+				`Expected: page to${not} have title ${test.utils.printExpected(
+					expected,
+				)}`
+			);
+		},
+	};
+};
 
 export const expect = baseExpect.extend({
 	async toHavePageTitle(received: BasePage, expected: string) {
 		const _expected = expected ?? received.curTitle;
+		return expectTitle(this, received.page, _expected);
+	},
 
-		const pass = await baseExpect(received.page)
-			.toHaveTitle(_expected)
-			.then(() => !this.isNot)
-			.catch(() => this.isNot);
+	async toHavePageTitle_Site(received: Site, expected: string) {
+		return expectTitle(this, received.page, expected);
+	},
 
-		return {
-			pass,
-			message: () => {
-				const not = this.isNot ? ' not' : '';
-				const hint = this.utils.matcherHint(
-					'toHaveTitle',
-					undefined,
-					undefined,
-					{
-						isNot: this.isNot,
-					},
-				);
-
-				return (
-					hint +
-					'\n\n' +
-					`Expected: page to${not} have title ${this.utils.printExpected(
-						_expected,
-					)}`
-				);
-			},
-		};
+	async toHaveDefaultPageTitle(received: Site) {
+		const site = received;
+		const title = site.globalData.pages[site.currentPage].defaultTitle;
+		return expectTitle(this, site.page, title);
 	},
 });

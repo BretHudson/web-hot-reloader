@@ -4,7 +4,15 @@ import path from 'node:path';
 import type { Locator, Page } from '@playwright/test';
 
 import { type ServerFilePath } from './server-path';
-import { replacementsRoot, tempDir, templateRoot } from '../shared';
+import {
+	type GlobalData,
+	type SitePagePath,
+	type SitePagePathConfig,
+	defaultPagePaths,
+	replacementsRoot,
+	tempDir,
+	templateRoot,
+} from '../shared';
 import { expect } from '../fixtures/fixtures';
 
 // TODO(bret): Move these
@@ -154,8 +162,6 @@ export class SubDirIndexPage extends BasePage {
 	}
 }
 
-type SitePageName = 'index' | 'page-two' | 'sub-dir/index';
-
 export class ReloadableAsset {
 	site: Site;
 	src: string;
@@ -207,10 +213,19 @@ export class CSSAsset extends ReloadableAsset {
 export class Site {
 	page: Page;
 	serverFilePath: ServerFilePath;
+	pagePaths: SitePagePathConfig;
+	currentPage: SitePagePath;
+	globalData: GlobalData;
 
-	constructor(page: Page, serverFilePath: ServerFilePath) {
+	constructor(
+		page: Page,
+		serverFilePath: ServerFilePath,
+		globalData: GlobalData,
+	) {
 		this.page = page;
 		this.serverFilePath = serverFilePath;
+		this.pagePaths = Object.assign({}, defaultPagePaths);
+		this.globalData = globalData;
 
 		// TODO(bret): Move this, I don't love it here
 		if (fs.existsSync(serverFilePath.filePath)) return;
@@ -231,20 +246,10 @@ export class Site {
 		return new ReplaceableAsset(this, fileName, 'href');
 	}
 
-	async goto(page: SitePageName) {
-		let url: string | null = null;
-		switch (page) {
-			case 'index':
-				url = '';
-				break;
-			case 'page-two':
-				url = 'page-two';
-				break;
-			case 'sub-dir/index':
-				url = 'sub-dir/';
-				break;
-		}
-		if (url === null) throw new Error('ruh roh');
+	async goto(page: SitePagePath) {
+		let url: string | undefined = this.pagePaths[page];
+		if (url === undefined) throw new Error('ruh roh');
+		this.currentPage = page;
 		return this.page.goto(this.serverFilePath.url + url);
 	}
 

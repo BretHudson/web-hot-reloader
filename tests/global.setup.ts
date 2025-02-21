@@ -22,4 +22,6 @@ setup('setup', async ({ request }) => {
 		const res = await request.head(url);
 		expect(res.ok()).toBeTruthy();
 	}
+
+	// TODO: context.addInitScript (inject the hot reloader!!)
 });

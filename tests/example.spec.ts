@@ -23,9 +23,8 @@ const options = [
 
 test.describe('Image loading', () => {
 	test.beforeEach(async ({ site }) => {
-		await site.goto('index');
-
-		await expect(site.page).toHaveTitle(IndexPage.defaultTitle);
+		await site.goto('index.html');
+		await expect(site).toHaveDefaultPageTitle();
 	});
 
 	test('replace image', async ({ site }) => {
@@ -184,9 +183,9 @@ describeSerial('edit CSS & image then HTML', () => {
 		await favicon.replace();
 		await expect(favicon).WHR_toBeReloaded();
 
-		await expect(indexPage).toHavePageTitle(IndexPage.defaultTitle);
+		await expect(site).toHavePageTitle_Site(IndexPage.defaultTitle);
 		await IndexPage.update(indexPage, 'My Cool Site');
-		await expect(indexPage).toHavePageTitle('My Cool Site');
+		await expect(site).toHavePageTitle_Site('My Cool Site');
 
 		// the background color should NOT be reset!
 		await expect(indexPage).toHaveStyles({
