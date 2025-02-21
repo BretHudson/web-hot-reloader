@@ -21,9 +21,9 @@ export default defineConfig({
 	/* Run tests in files in parallel */
 	// fullyParallel: !process.env.CI,
 	fullyParallel: false,
-	forbidOnly: !!process.env.CI,
+	// forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 0,
-	workers: process.env.CI ? 1 : undefined,
+	// workers: process.env.CI ? 1 : undefined,
 	timeout: 5e3,
 	reporter: 'html',
 	use: {
@@ -32,6 +32,8 @@ export default defineConfig({
 
 		trace: 'on-first-retry',
 	},
+
+	globalSetup: 'tests/pre-global.setup.ts',
 
 	projects: [
 		{

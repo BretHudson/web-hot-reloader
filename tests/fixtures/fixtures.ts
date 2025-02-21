@@ -13,6 +13,7 @@ import {
 	pagePaths,
 	type PageData,
 	type GlobalData,
+	SitePagePath,
 } from '../shared';
 
 import {
@@ -22,21 +23,26 @@ import {
 import { Site } from '../helpers/pages';
 
 interface Fixtures {
+	globalData: GlobalData;
 	site: Site;
 	serverFilePath: ServerFilePath;
 }
 
-const createPage = (): PageData => ({
-	html: '',
-	defaultTitle: '',
-});
-
-const globalData: GlobalData = {
-	pages: {
-		'index.html': createPage(),
-		'page-two.html': createPage(),
-		'sub-dir/index.html': createPage(),
+const createPage = (urlPath: SitePagePath): [SitePagePath, PageData] => [
+	urlPath,
+	{
+		urlPath,
+		html: '',
+		defaultTitle: '',
 	},
+];
+
+const _globalData: GlobalData = {
+	pages: Object.fromEntries([
+		createPage('index.html'),
+		createPage('page-two.html'),
+		createPage('sub-dir/index.html'),
+	]) as GlobalData['pages'],
 };
 
 let pagesInit = false;
@@ -46,7 +52,7 @@ const initPages = async (browser: Browser) => {
 	// parse page data
 	await Promise.all(
 		pagePaths.map(async (url) => {
-			const pageData = globalData.pages[url];
+			const pageData = _globalData.pages[url];
 
 			pageData.html = await fs.promises.readFile(
 				path.join(templateRoot, url),
@@ -64,10 +70,16 @@ const initPages = async (browser: Browser) => {
 
 export * from '@playwright/test';
 export const test = baseTest.extend<Fixtures>({
-	site: [
-		async ({ browser, page }, use) => {
+	globalData: [
+		async ({ browser }, use) => {
 			await initPages(browser);
-
+			await use(_globalData);
+		},
+		{ option: true, scope: 'test' },
+	],
+	site: [
+		async ({ page, globalData }, use) => {
+			// TODO(bret): deep clone the globalData?
 			const site = new Site(page, constructServerFilePath(), globalData);
 			await use(site);
 		},

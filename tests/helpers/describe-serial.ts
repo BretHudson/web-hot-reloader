@@ -16,8 +16,8 @@ export const describeSerial = (title: string, callback: () => void) => {
 				page ??= await browser.newPage();
 				return use(page);
 			},
-			site: async ({ page }, use) => {
-				site ??= new Site(page, constructServerFilePath());
+			site: async ({ page, globalData }, use) => {
+				site ??= new Site(page, constructServerFilePath(), globalData);
 				return use(site);
 			},
 			serverFilePath: async ({}, use) => {
@@ -27,9 +27,9 @@ export const describeSerial = (title: string, callback: () => void) => {
 
 		test.describe.configure({ mode: 'serial' });
 
-		test.beforeAll(async ({ browser }) => {
+		test.beforeAll(async ({ browser, globalData }) => {
 			page ??= await browser.newPage();
-			site ??= new Site(page, constructServerFilePath());
+			site ??= new Site(page, constructServerFilePath(), globalData);
 		});
 
 		test.afterAll(async () => {

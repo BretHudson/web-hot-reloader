@@ -7,6 +7,7 @@ import {
 	type CSSAsset,
 } from './helpers/pages';
 import { describeSerial } from './helpers/describe-serial';
+import { pagePaths } from './shared';
 
 const defaultBGColor = 'rgb(255, 0, 0)';
 const defaultColor = 'rgb(255, 255, 255)';
@@ -41,6 +42,34 @@ test.describe('Image loading', () => {
 		await expect(favicon).WHR_toNotBeReloaded();
 		await favicon.replace();
 		await expect(favicon).WHR_toBeReloaded();
+	});
+});
+
+test.describe(() => {
+	pagePaths.forEach((urlPath) => {
+		describeSerial(urlPath, () => {
+			const changes = (updatePath) => (urlPath === updatePath ? '' : 'not ');
+
+			test(`visit ${urlPath}, expect default title`, async ({ site }) => {
+				await site.goto(urlPath);
+				await expect(site).toHaveDefaultPageTitle();
+			});
+
+			// const updatePath = 'page-two.html';
+			pagePaths.forEach((updatePath) => {
+				test(`expect ${updatePath} update to ${changes(
+					updatePath,
+				)}cause changes`, async ({ site }) => {
+					const newTitle = [site.pages[urlPath].currentTitle, 'Updated'].join(
+						' | ',
+					);
+					await site.pages[updatePath].update(newTitle);
+					await expect(site).toHavePageTitle_Site(
+						site.pages[urlPath].currentTitle,
+					);
+				});
+			});
+		});
 	});
 });
 

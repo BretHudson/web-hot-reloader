@@ -57,8 +57,12 @@ const updateHTML = (fileName, _contents) => {
 		return cur === targetPath || cur === targetPath.replace('index.html', '');
 	});
 
-	if (!valid) return;
+	if (!valid) {
+		log('do not update');
+		return;
+	}
 
+	warn('updating!');
 	const script = document.getElementById('__web-hot-reloader');
 
 	// TODO(bret): Revisit this - string replacement is highly dependent on how the incoming HTML file is formatted :/

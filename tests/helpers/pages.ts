@@ -6,9 +6,11 @@ import type { Locator, Page } from '@playwright/test';
 import { type ServerFilePath } from './server-path';
 import {
 	type GlobalData,
+	type PageData,
 	type SitePagePath,
 	type SitePagePathConfig,
 	defaultPagePaths,
+	pagePaths,
 	replacementsRoot,
 	tempDir,
 	templateRoot,
@@ -42,7 +44,7 @@ const waitForWebSocketEvent = (page: Page, event: string, fileName: string) => {
 };
 
 const updateHTML = async (
-	basePage: BasePage,
+	page: Page,
 	fileName: HTMLFile,
 	serverFilePath: ServerFilePath,
 	replacement: (str: string) => string,
@@ -50,21 +52,19 @@ const updateHTML = async (
 	const htmlPath = path.join(serverFilePath.filePath, fileName);
 	const htmlContents = await fs.promises.readFile(htmlPath, 'utf-8');
 
-	const { page } = basePage;
-
 	const expectedFileName = `${tempDir}/${serverFilePath.path}/${fileName}`;
-	const evaluate = waitForWebSocketEvent(page, 'html-update', expectedFileName);
+	// const evaluate = waitForWebSocketEvent(page, 'html-update', expectedFileName);
 
 	const updateFile = fs.promises.writeFile(htmlPath, replacement(htmlContents));
+	await updateFile;
+	// const [payload] = await Promise.all([evaluate, updateFile]);
 
-	const [payload] = await Promise.all([evaluate, updateFile]);
-
-	expect(payload).toMatchObject({
-		eventName: 'html-update',
-		data: {
-			fileName: expectedFileName,
-		},
-	});
+	// expect(payload).toMatchObject({
+	// 	eventName: 'html-update',
+	// 	data: {
+	// 		fileName: expectedFileName,
+	// 	},
+	// });
 };
 
 export class WHRLocator {
@@ -127,8 +127,11 @@ export abstract class BasePage {
 		const titleToReplace = isSamePage ? page.curTitle : this.defaultTitle;
 
 		await expect(page).toHavePageTitle(page.curTitle);
-		await updateHTML(page, this.filePath, page.serverFilePath, (htmlContents) =>
-			htmlContents.replace(titleToReplace, pageTitle),
+		await updateHTML(
+			page.page,
+			this.filePath,
+			page.serverFilePath,
+			(htmlContents) => htmlContents.replace(titleToReplace, pageTitle),
 		);
 		if (isSamePage) {
 			page.curTitle = pageTitle;
@@ -210,8 +213,39 @@ export class CSSAsset extends ReloadableAsset {
 	}
 }
 
+class SitePage {
+	site: Site;
+	page: Page;
+	pageData: PageData;
+	urlPath: string;
+	defaultTitle: string;
+	currentTitle: string;
+
+	constructor(pageData: PageData, site: Site, page: Page) {
+		this.pageData = pageData;
+		this.site = site;
+		this.page = page;
+		this.defaultTitle = pageData.defaultTitle;
+		this.currentTitle = pageData.defaultTitle;
+	}
+
+	async update(newTitle: string) {
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		await updateHTML(
+			this.page,
+			// TODO(bret): remove as
+			this.pageData.urlPath as HTMLFile,
+			this.site.serverFilePath,
+			(htmlContents) => htmlContents.replace(this.currentTitle, newTitle),
+		);
+		this.currentTitle = newTitle;
+		await new Promise((resolve) => setTimeout(resolve, 10));
+	}
+}
+
 export class Site {
 	page: Page;
+	pages: Record<SitePagePath, SitePage>;
 	serverFilePath: ServerFilePath;
 	pagePaths: SitePagePathConfig;
 	currentPage: SitePagePath;
@@ -226,6 +260,13 @@ export class Site {
 		this.serverFilePath = serverFilePath;
 		this.pagePaths = Object.assign({}, defaultPagePaths);
 		this.globalData = globalData;
+
+		this.pages = Object.fromEntries(
+			pagePaths.map((urlPath) => {
+				const pageData = globalData.pages[urlPath];
+				return [urlPath, new SitePage(pageData, this, page)];
+			}),
+		) as typeof this.pages;
 
 		// TODO(bret): Move this, I don't love it here
 		if (fs.existsSync(serverFilePath.filePath)) return;

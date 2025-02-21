@@ -30,7 +30,7 @@ export const expect = baseExpect.extend({
 	async WHR_toBeReloaded(received: ReloadableAsset) {
 		const { page, locator, attr } = received.locator;
 		try {
-			await locator.waitFor({ state: 'attached', timeout: 3e3 });
+			await locator.waitFor({ state: 'attached' });
 		} catch (e) {
 			return {
 				message: () => 'element not on page',
@@ -43,7 +43,6 @@ export const expect = baseExpect.extend({
 			const good = await page.waitForFunction(
 				({ el, attr }) => el?.getAttribute(attr)?.includes('?'),
 				{ el: handle, attr },
-				{ timeout: 10e3 },
 			);
 
 			return {

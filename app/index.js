@@ -129,6 +129,21 @@ fs.watchFile(clientJsPath, { interval: 1000 }, () => {
 	});
 });
 
+const retry = async (callback) => {
+	let error;
+	for (let i = 0; i < 5; ++i) {
+		try {
+			await callback();
+			return;
+		} catch (e) {
+			error = e;
+			console.warn('Retrying...');
+			await new Promise((resolve) => setTimeout(resolve, 200));
+		}
+	}
+	throw error;
+};
+
 // TODO(bret): Do not commit recursive!!!
 fs.watch(watchPath, { recursive: true }, async (eventType, fileName) => {
 	if (!fileName) return;
@@ -139,13 +154,17 @@ fs.watch(watchPath, { recursive: true }, async (eventType, fileName) => {
 	const filePath = path.join(watchPath, fileName);
 	if (!fs.existsSync(filePath)) return;
 
-	const stats = await fs.promises.stat(filePath);
-	if (!stats.isFile()) return;
+	await retry(async () => {
+		const stats = await fs.promises.stat(filePath);
+		if (!stats.isFile()) return;
+	});
 
-	fileName = fileName.replaceAll(path.sep, '/');
-	const contents = await fs.promises.readFile(filePath, 'utf-8');
-	if (haveFileContentsUpdated(filePath, contents) === false) return;
-	sendUpdate(eventType, fileName, contents);
+	await retry(async () => {
+		fileName = fileName.replaceAll(path.sep, '/');
+		const contents = await fs.promises.readFile(filePath, 'utf-8');
+		if (haveFileContentsUpdated(filePath, contents) === false) return;
+		sendUpdate(eventType, fileName, contents);
+	});
 });
 const shutdown = () => server.close(() => process.exit(0));
 

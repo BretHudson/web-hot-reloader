@@ -1,16 +1,7 @@
-import fs from 'node:fs';
-
 import { expect, test as setup } from './fixtures/fixtures';
-import { SERVER_PORT, tempRoot, WHR_PORT } from './shared';
+import { SERVER_PORT, WHR_PORT } from './shared';
 
 setup('setup', async ({ request }) => {
-	if (fs.existsSync(tempRoot)) {
-		fs.rmSync(tempRoot, {
-			recursive: true,
-		});
-	}
-	fs.mkdirSync(tempRoot);
-
 	// ensure both servers are up & running
 	{
 		const url = `http://localhost:${SERVER_PORT}`;

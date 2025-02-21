@@ -16,7 +16,7 @@
 		{
 			"label": "[tests] WHR",
 			"type": "shell",
-			"command": "nodemon app/index.js ./tests/site",
+			"command": "node app/index.js ./tests/site",
 			"presentation": {
 				"reveal": "always",
 				"panel": "new"

@@ -23,6 +23,7 @@ export interface SitePagePathConfig {
 export type SitePagePath = keyof SitePagePathConfig;
 
 export interface PageData {
+	urlPath: string;
 	html: string;
 	defaultTitle: string;
 }
