@@ -19,7 +19,8 @@ const dependencies = [setupServer];
 export default defineConfig({
 	testDir: './tests',
 	/* Run tests in files in parallel */
-	fullyParallel: !process.env.CI,
+	// fullyParallel: !process.env.CI,
+	fullyParallel: false,
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 0,
 	workers: process.env.CI ? 1 : undefined,
