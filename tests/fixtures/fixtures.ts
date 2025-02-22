@@ -60,7 +60,7 @@ const initPages = async (browser: Browser) => {
 			);
 
 			const page = await browser.newPage();
-			await page.goto(`http://localhost:${SERVER_PORT}/_template/${url}`);
+			await page.goto('../_template/' + url);
 			pageData.defaultTitle = await page.title();
 		}),
 	);

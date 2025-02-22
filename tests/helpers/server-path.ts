@@ -14,7 +14,7 @@ export const constructServerFilePath = (): ServerFilePath => {
 	const _path = `test-${count++}-worker-${process.env.TEST_PARALLEL_INDEX}`;
 	const data = {
 		path: _path,
-		url: `http://localhost:${SERVER_PORT}/${tempDir}/${_path}/`,
+		url: `${_path}/`,
 		filePath: path.join(tempRoot, _path),
 	};
 

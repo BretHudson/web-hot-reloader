@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { Server } from 'socket.io';
+import { instrument } from '@socket.io/admin-ui';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,7 +19,8 @@ console.log('Options: ' + JSON.stringify({ PORT, NODE_ENV }));
 
 const [_nodePath, _scriptPath, ...args] = process.argv;
 
-const [watchPath] = args;
+const [_watchPath] = args;
+const watchPath = path.join(_watchPath);
 
 const publicPath = path.join(__dirname, '../public');
 const server = http.createServer((req, res) => {
@@ -44,20 +46,50 @@ const server = http.createServer((req, res) => {
 		showError();
 	}
 });
+
+const adminOrigin = 'https://admin.socket.io';
 const io = new Server(server, {
-	cors: {
-		origin: '*',
+	cors: (req, callback) => {
+		let origin = '*';
+		if (req.headers.origin === adminOrigin) origin = [adminOrigin];
+		callback(null, {
+			origin,
+			credentials: true,
+		});
 	},
 });
 
+instrument(io, { auth: false });
+
 let lastJsUpdate = Date.now();
 io.on('connection', (client) => {
-	console.log(`connect\t\tid: ${client.id}`);
+	const { origin: clientOrigin, pathName, assets } = client.handshake.query;
+
+	// TODO(bret): What about .php? or other files?
+	const paths = [
+		[watchPath, pathName + '.html'],
+		[watchPath, pathName, 'index.html'],
+		[watchPath, pathName],
+	].map((u) => path.join(...u));
+
+	const found = paths.find((p) => fs.existsSync(p) && fs.statSync(p).isFile());
+	if (!found) throw new Error('???', pathName);
+
+	const room = path.relative(watchPath, found);
+	client.join(room);
+
+	console.log(`connect\t\tid: ${client.id}\troom: ${room}`);
 
 	client.emit('reload-self', { lastJsUpdate });
 
+	client.on('watch-asset', (json) => {
+		const data = JSON.parse(json);
+		const room = path.join(data.room);
+		client.join(room);
+	});
+
 	client.on('disconnect', () => {
-		console.log(`disconnect\tid: ${client.id}`);
+		console.log(`disconnect\tid: ${client.id}\troom: ${room}`);
 	});
 });
 
@@ -102,9 +134,10 @@ const sendUpdate = (eventType, fileName, contents) => {
 	const ext = path.extname(fileName);
 	const event = fileToEventMap[ext];
 	if (!event) return;
-	io.sockets.emit(event, { fileName, contents });
+	const room = path.join(fileName);
+	io.sockets.to(room).emit(event, { fileName, contents });
 	console.log(
-		`[${event}] ${fileName} update emitted (eventType: ${eventType})`,
+		`[${event}] ${fileName} update emitted to room "${room}" (eventType: ${eventType})`,
 	);
 };
 

@@ -45,24 +45,9 @@ const updateCSS = (fileName) => {
 	updateElems(fileName, `link`, 'href');
 };
 
-const updateHTML = (fileName, _contents) => {
-	const names = ['.html', 'index.html', '/index.html'];
-
+const updateHTML = (_contents) => {
 	let contents = _contents;
 
-	// TODO(bret): Revisit this
-	const targetPath = window.location.origin + '/' + fileName;
-	const valid = names.some((name) => {
-		const cur = window.location.origin + window.location.pathname + name;
-		return cur === targetPath || cur === targetPath.replace('index.html', '');
-	});
-
-	if (!valid) {
-		log('do not update');
-		return;
-	}
-
-	warn('updating!');
 	const script = document.getElementById('__web-hot-reloader');
 
 	// TODO(bret): Revisit this - string replacement is highly dependent on how the incoming HTML file is formatted :/
@@ -79,8 +64,10 @@ const updateHTML = (fileName, _contents) => {
 	document.write(contents);
 	document.close();
 
-	if (!document.getElementById('__web-hot-reloader'))
-		document.head.append(script);
+	document.getElementById('__web-hot-reloader')?.remove();
+	document.head.append(script);
+
+	log('reloaded page');
 };
 
 // TODO(bret): Figure out all the places an image could be used
@@ -106,8 +93,31 @@ const reloadSelf = () => {
 };
 
 let lastJsUpdate = null;
-const initWebsocket = () => {
-	const socket = io(origin);
+const initWebSocket = async () => {
+	const observer = new PerformanceObserver((list) => {
+		const entries = list.getEntries();
+		entries.forEach((entry) => {
+			switch (entry.initiatorType) {
+				case 'link':
+				case 'other':
+				case 'img':
+					break;
+				default:
+					return;
+			}
+			const room = entry.name.replace(window.location.origin + '/', '');
+			const data = JSON.stringify({ room });
+			socket.emit('watch-asset', data);
+		});
+	});
+	observer.observe({ type: 'resource', buffered: true });
+
+	const socket = io(origin, {
+		query: {
+			origin: window.location.origin,
+			pathName: window.location.pathname,
+		},
+	});
 	window['__whr-socket'] = socket;
 
 	socket.on('connect', () => {
@@ -116,22 +126,24 @@ const initWebsocket = () => {
 
 	socket.on('css-update', (data) => {
 		const { fileName } = data;
+		console.log('css-update', fileName);
 		updateCSS(fileName);
 	});
 
 	socket.on('html-update', (data) => {
-		const { fileName, contents } = data;
-		updateHTML(fileName, contents);
+		const { contents } = data;
+		updateHTML(contents);
 	});
 
 	socket.on('image-update', (data) => {
 		const { fileName } = data;
+		console.log('image-update', fileName);
 		updateImage(fileName);
 	});
 
 	socket.on('reload-self', (data) => {
 		if (lastJsUpdate && lastJsUpdate !== data.lastJsUpdate) {
-			log('Unloading hot loader, about to disconnect');
+			log('Shutting down reloader, about to disconnect');
 			socket.close();
 			reloadSelf();
 		}
@@ -140,19 +152,25 @@ const initWebsocket = () => {
 
 	socket.on('disconnect', () => {
 		log('Socket disconnected');
+
+		observer.disconnect();
 	});
 
-	log('Websocket initialized');
+	log('Socket initialized');
 };
 
 const init = () => {
 	const scriptSrc = `${origin}/socket.io/socket.io.js`;
 	const scriptElem = document.createElement('script');
-	scriptElem.onload = () => initWebsocket();
+	scriptElem.onload = () => {
+		window.requestAnimationFrame(async () => {
+			await initWebSocket();
+		});
+	};
 	scriptElem.src = scriptSrc;
 	document.head.append(scriptElem);
 
-	log('Hot loader initialized');
+	log('Reloader initialized');
 };
 
 init();
