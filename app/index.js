@@ -47,11 +47,19 @@ const server = http.createServer((req, res) => {
 	}
 });
 
+const adminOrigin = 'https://admin.socket.io';
 const io = new Server(server, {
-	cors: {
-		origin: '*',
+	cors: (req, callback) => {
+		let origin = '*';
+		if (req.headers.origin === adminOrigin) origin = [adminOrigin];
+		callback(null, {
+			origin,
+			credentials: true,
+		});
 	},
 });
+
+instrument(io, { auth: false });
 
 let lastJsUpdate = Date.now();
 io.on('connection', (client) => {
