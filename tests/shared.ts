@@ -22,6 +22,8 @@ export interface SitePagePathConfig {
 }
 export type SitePagePath = keyof SitePagePathConfig;
 
+export type CSSFile = 'styles.css' | 'styles2.css' | 'styles3.css';
+
 export interface PageData {
 	urlPath: string;
 	html: string;

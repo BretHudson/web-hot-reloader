@@ -1,11 +1,10 @@
-import { expect as baseExpect } from '@playwright/test';
+import { expect as baseExpect, type Page } from '@playwright/test';
 
 import { camelCaseToKebabCase } from '../../helpers/case-converters';
-import type { BasePage } from '../../helpers/pages';
 
 export const expect = baseExpect.extend({
-	async toHaveStyles(received: BasePage, expected: Record<string, string>) {
-		const body = received.page.locator('body');
+	async toHaveStyles(received: Page, expected: Record<string, string>) {
+		const body = received.locator('body');
 
 		const errors: any[] = [];
 

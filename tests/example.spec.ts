@@ -1,26 +1,10 @@
 import { test, expect } from './fixtures/fixtures';
-import {
-	type BasePage,
-	IndexPage,
-	PageTwoPage,
-	SubDirIndexPage,
-	type CSSAsset,
-} from './helpers/pages';
+import { type CSSAsset } from './helpers/pages';
 import { describeSerial } from './helpers/describe-serial';
 import { pagePaths } from './shared';
 
 const defaultBGColor = 'rgb(255, 0, 0)';
 const defaultColor = 'rgb(255, 255, 255)';
-const createTitle = (filePath: string, same: boolean) => {
-	const are = same ? 'are' : 'are not';
-	return `ensure ${filePath} changes ${are} applied`;
-};
-
-const options = [
-	['/index.html', IndexPage],
-	['/page-two.html', PageTwoPage],
-	['/sub-dir/index.html', SubDirIndexPage],
-] as const;
 
 test.describe('Image loading', () => {
 	test.beforeEach(async ({ site }) => {
@@ -46,57 +30,49 @@ test.describe('Image loading', () => {
 });
 
 test.describe(() => {
-	pagePaths.forEach((urlPath) => {
-		describeSerial(urlPath, () => {
-			const changes = (updatePath) => (urlPath === updatePath ? '' : 'not ');
-
-			test(`visit ${urlPath}, expect default title`, async ({ site }) => {
-				await site.goto(urlPath);
-				await expect(site).toHaveDefaultPageTitle();
-			});
-
-			// const updatePath = 'page-two.html';
-			pagePaths.forEach((updatePath) => {
-				test(`expect ${updatePath} update to ${changes(
-					updatePath,
-				)}cause changes`, async ({ site }) => {
-					const newTitle = [site.pages[urlPath].currentTitle, 'Updated'].join(
-						' | ',
-					);
-					await site.pages[updatePath].update(newTitle);
-					await expect(site).toHavePageTitle_Site(
-						site.pages[urlPath].currentTitle,
-					);
-				});
-			});
-		});
+	const pathWithAliases = pagePaths.map((urlPath) => {
+		let aliases: string[] = [];
+		if (urlPath.endsWith('index.html')) {
+			aliases.push(urlPath.replace('index.html', ''));
+		}
+		if (urlPath.endsWith('.html')) {
+			aliases.push(urlPath.replace('.html', ''));
+		}
+		aliases.push(urlPath);
+		return [urlPath, aliases] as [typeof urlPath, typeof aliases];
 	});
-});
 
-options.forEach(([_fileName, CurPageType]) => {
-	const fileName = _fileName.replace(/^\//, '');
-	const isIndex = fileName.endsWith('index.html');
-	const fileNames = isIndex
-		? ['', 'index', 'index.html']
-		: [fileName.replace('.html', ''), fileName];
-	test.describe(_fileName, () => {
-		fileNames.forEach((fileName) => {
-			describeSerial(`access as "/${fileName}"`, () => {
-				let basePage: BasePage;
-				test.beforeAll(async ({ site }) => {
-					basePage = new CurPageType(site, fileName);
-					await basePage.goto();
-				});
+	pathWithAliases.forEach(([urlPath, aliases]) => {
+		test.describe(urlPath, () => {
+			aliases.forEach((alias) => {
+				const aliasTitle = `"/${alias}"`;
+				describeSerial(`as ${aliasTitle}`, () => {
+					const changes = (updatePath) =>
+						urlPath === updatePath ? '' : 'not ';
 
-				options.forEach(([fileURLToPath, PageType]) => {
-					const title = createTitle(fileURLToPath, CurPageType === PageType);
-					test(title, async () => {
-						await PageType.update(basePage);
+					test(`visit ${aliasTitle}, expect default title`, async ({
+						site,
+					}) => {
+						site.setPagePathAlias(urlPath, alias);
+						await site.goto(urlPath);
+						await expect(site).toHaveDefaultPageTitle();
 					});
-				});
 
-				test('ensure changes are applied, again', async () => {
-					await CurPageType.update(basePage, 'A Second Update');
+					// const updatePath = 'page-two.html';
+					pagePaths.forEach((updatePath) => {
+						test(`expect ${updatePath} update to ${changes(
+							updatePath,
+						)}cause changes`, async ({ site }) => {
+							const newTitle = [
+								site.pages[urlPath].currentTitle,
+								'Updated',
+							].join(' | ');
+							await site.updateHTML(updatePath, newTitle);
+							await expect(site).toHavePageTitle(
+								site.pages[urlPath].currentTitle,
+							);
+						});
+					});
 				});
 			});
 		});
@@ -107,19 +83,17 @@ describeSerial('edit CSS', () => {
 	let backgroundColor = defaultBGColor;
 	let color = defaultColor;
 
-	let indexPage: IndexPage;
 	let cssElem: CSSAsset;
 	let css2Elem: CSSAsset;
 	test.beforeAll(async ({ site }) => {
-		indexPage = new IndexPage(site, '');
-		await indexPage.goto();
+		await site.goto('index.html');
 
 		cssElem = site.getCSS('styles.css');
 		css2Elem = site.getCSS('styles2.css');
 	});
 
-	test('ensure edits are received', async () => {
-		await expect(indexPage).toHaveStyles({
+	test('ensure edits are received', async ({ site }) => {
+		await expect(site.page).toHaveStyles({
 			backgroundColor,
 			color,
 		});
@@ -132,14 +106,14 @@ describeSerial('edit CSS', () => {
 		await expect(cssElem).WHR_toBeReloaded();
 		await expect(css2Elem).WHR_toNotBeReloaded();
 
-		await expect(indexPage).toHaveStyles({
+		await expect(site.page).toHaveStyles({
 			backgroundColor,
 			color,
 		});
 	});
 
-	test('ensure multiple files are received', async () => {
-		await expect(indexPage).toHaveStyles({
+	test('ensure multiple files are received', async ({ site }) => {
+		await expect(site.page).toHaveStyles({
 			backgroundColor,
 			color,
 		});
@@ -154,16 +128,16 @@ describeSerial('edit CSS', () => {
 		await expect(cssElem).WHR_toBeReloaded();
 		await expect(css2Elem).WHR_toBeReloaded();
 
-		await expect(indexPage).toHaveStyles({
+		await expect(site.page).toHaveStyles({
 			backgroundColor,
 			color,
 		});
 	});
 
-	test('ensure non-included files are ignored client-side', async () => {
-		const { site } = indexPage;
-
-		await expect(indexPage).toHaveStyles({
+	test('ensure non-included files are ignored client-side', async ({
+		site,
+	}) => {
+		await expect(site.page).toHaveStyles({
 			backgroundColor,
 			color,
 		});
@@ -173,7 +147,7 @@ describeSerial('edit CSS', () => {
 			color: 'magenta',
 		});
 
-		await expect(indexPage).toHaveStyles({
+		await expect(site.page).toHaveStyles({
 			backgroundColor,
 			color,
 		});
@@ -181,22 +155,20 @@ describeSerial('edit CSS', () => {
 });
 
 describeSerial('edit CSS & image then HTML', () => {
-	let indexPage: IndexPage;
 	test.beforeAll(async ({ site }) => {
-		indexPage = new IndexPage(site, '');
-		await indexPage.goto();
+		site.goto('index.html');
 	});
 
-	test("ensure HTML reload doesn't override reloaded assets", async () => {
-		const { site } = indexPage;
-
-		await expect(indexPage).toHaveStyles({
+	test("ensure HTML reload doesn't override reloaded assets", async ({
+		site,
+	}) => {
+		await expect(site.page).toHaveStyles({
 			backgroundColor: 'rgb(255, 0, 0)',
 		});
 		const cssElem = site.getCSS('styles.css');
 		await cssElem.update({ background: 'blue' });
 		await expect(cssElem).WHR_toBeReloaded();
-		await expect(indexPage).toHaveStyles({
+		await expect(site.page).toHaveStyles({
 			backgroundColor: 'rgb(0, 0, 255)',
 		});
 
@@ -212,26 +184,24 @@ describeSerial('edit CSS & image then HTML', () => {
 		await favicon.replace();
 		await expect(favicon).WHR_toBeReloaded();
 
-		await expect(site).toHavePageTitle_Site(IndexPage.defaultTitle);
-		await IndexPage.update(indexPage, 'My Cool Site');
-		await expect(site).toHavePageTitle_Site('My Cool Site');
+		await expect(site).toHaveDefaultPageTitle();
+		await site.updateHTML('index.html', 'My Cool Site');
+		await expect(site).toHavePageTitle('My Cool Site');
 
 		// the background color should NOT be reset!
-		await expect(indexPage).toHaveStyles({
+		await expect(site.page).toHaveStyles({
 			backgroundColor: 'rgb(0, 0, 255)',
 		});
 		await expect(image).WHR_toBeReloaded();
 		await expect(favicon).WHR_toBeReloaded();
 	});
 
-	test('ensure new asset changes are applied', async () => {
-		const { site } = indexPage;
-
+	test('ensure new asset changes are applied', async ({ site }) => {
 		const cssElem = site.getCSS('styles.css');
 		await cssElem.update({ background: 'lime' });
 		// TODO(bret): This is almost definitely a race condition! (because it's been reloaded before)
 		await expect(cssElem).WHR_toBeReloaded();
-		await expect(indexPage).toHaveStyles({
+		await expect(site.page).toHaveStyles({
 			backgroundColor: 'rgb(0, 255, 0)',
 		});
 	});

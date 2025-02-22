@@ -4,7 +4,7 @@ import {
 	type Page,
 } from '@playwright/test';
 
-import type { BasePage, Site } from '../../helpers/pages';
+import type { Site } from '../../helpers/pages';
 
 const expectTitle = async (
 	test: ExpectMatcherState,
@@ -34,12 +34,7 @@ const expectTitle = async (
 };
 
 export const expect = baseExpect.extend({
-	async toHavePageTitle(received: BasePage, expected: string) {
-		const _expected = expected ?? received.curTitle;
-		return expectTitle(this, received.page, _expected);
-	},
-
-	async toHavePageTitle_Site(received: Site, expected: string) {
+	async toHavePageTitle(received: Site, expected: string) {
 		return expectTitle(this, received.page, expected);
 	},
 

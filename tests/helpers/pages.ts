@@ -1,25 +1,24 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import type { Locator, Page } from '@playwright/test';
+import { expect } from '../fixtures/fixtures';
+import { type Locator, type Page } from '@playwright/test';
 
 import { type ServerFilePath } from './server-path';
+import type {
+	CSSFile,
+	GlobalData,
+	PageData,
+	SitePagePath,
+	SitePagePathConfig,
+} from '../shared';
 import {
-	type GlobalData,
-	type PageData,
-	type SitePagePath,
-	type SitePagePathConfig,
 	defaultPagePaths,
 	pagePaths,
 	replacementsRoot,
 	tempDir,
 	templateRoot,
 } from '../shared';
-import { expect } from '../fixtures/fixtures';
-
-// TODO(bret): Move these
-export type CSSFile = 'styles.css' | 'styles2.css' | 'styles3.css';
-export type HTMLFile = 'index.html' | 'page-two.html' | 'sub-dir/index.html';
 
 interface WebSocketData {
 	eventName: string;
@@ -45,7 +44,7 @@ const waitForWebSocketEvent = (page: Page, event: string, fileName: string) => {
 
 const updateHTML = async (
 	page: Page,
-	fileName: HTMLFile,
+	fileName: SitePagePath,
 	serverFilePath: ServerFilePath,
 	replacement: (str: string) => string,
 ) => {
@@ -53,18 +52,17 @@ const updateHTML = async (
 	const htmlContents = await fs.promises.readFile(htmlPath, 'utf-8');
 
 	const expectedFileName = `${tempDir}/${serverFilePath.path}/${fileName}`;
-	// const evaluate = waitForWebSocketEvent(page, 'html-update', expectedFileName);
+	const evaluate = waitForWebSocketEvent(page, 'html-update', expectedFileName);
 
 	const updateFile = fs.promises.writeFile(htmlPath, replacement(htmlContents));
-	await updateFile;
-	// const [payload] = await Promise.all([evaluate, updateFile]);
+	const [payload] = await Promise.all([evaluate, updateFile]);
 
-	// expect(payload).toMatchObject({
-	// 	eventName: 'html-update',
-	// 	data: {
-	// 		fileName: expectedFileName,
-	// 	},
-	// });
+	expect(payload).toMatchObject({
+		eventName: 'html-update',
+		data: {
+			fileName: expectedFileName,
+		},
+	});
 };
 
 export class WHRLocator {
@@ -77,91 +75,6 @@ export class WHRLocator {
 		this.locator = page.locator(selector);
 		this.attr = attr;
 		this.page = page;
-	}
-}
-
-export abstract class BasePage {
-	static defaultTitle: string;
-	static updatedTitle: string;
-	static filePath: HTMLFile;
-
-	site: Site;
-	page: Page;
-	path: string;
-	serverFilePath: ServerFilePath;
-	curTitle: string;
-
-	constructor(site: Site, path: string) {
-		this.site = site;
-		this.page = site.page;
-		this.path = path;
-		this.serverFilePath = site.serverFilePath;
-
-		// TODO(bret): Move this, I don't love it here
-		if (fs.existsSync(site.serverFilePath.filePath)) return;
-		fs.cpSync(templateRoot, site.serverFilePath.filePath, {
-			recursive: true,
-		});
-	}
-
-	async goto() {
-		const url = this.serverFilePath.url + this.path;
-		return this.page.goto(url);
-	}
-
-	getCSS(fileName: CSSFile) {
-		return new WHRLocator(this.site, 'href', `css/${fileName}`);
-	}
-
-	getImg(fileName: string) {
-		return new WHRLocator(this.site, 'src', fileName);
-	}
-
-	getFavicon(fileName: string) {
-		return new WHRLocator(this.site, 'href', fileName);
-	}
-
-	static async update(page: BasePage, pageTitle: string = this.updatedTitle) {
-		let isSamePage = page instanceof this;
-
-		const titleToReplace = isSamePage ? page.curTitle : this.defaultTitle;
-
-		await expect(page).toHavePageTitle(page.curTitle);
-		await updateHTML(
-			page.page,
-			this.filePath,
-			page.serverFilePath,
-			(htmlContents) => htmlContents.replace(titleToReplace, pageTitle),
-		);
-		if (isSamePage) {
-			page.curTitle = pageTitle;
-		}
-		await expect(page).toHavePageTitle(isSamePage ? pageTitle : page.curTitle);
-	}
-}
-
-export class IndexPage extends BasePage {
-	static defaultTitle = 'My Site';
-	static updatedTitle = 'My Cool Site';
-	static filePath: HTMLFile = 'index.html';
-	curTitle = IndexPage.defaultTitle;
-}
-
-export class PageTwoPage extends BasePage {
-	static defaultTitle = 'Page Two';
-	static updatedTitle = 'Page II';
-	static filePath: HTMLFile = 'page-two.html';
-	curTitle = PageTwoPage.defaultTitle;
-}
-
-export class SubDirIndexPage extends BasePage {
-	static defaultTitle = 'A Subdirectory';
-	static updatedTitle = 'A Sub Dir';
-	static filePath: HTMLFile = 'sub-dir/index.html';
-	curTitle = SubDirIndexPage.defaultTitle;
-
-	constructor(site: Site, path: string) {
-		super(site, 'sub-dir/' + path);
 	}
 }
 
@@ -234,7 +147,7 @@ class SitePage {
 		await updateHTML(
 			this.page,
 			// TODO(bret): remove as
-			this.pageData.urlPath as HTMLFile,
+			this.pageData.urlPath as SitePagePath,
 			this.site.serverFilePath,
 			(htmlContents) => htmlContents.replace(this.currentTitle, newTitle),
 		);
@@ -273,6 +186,14 @@ export class Site {
 		fs.cpSync(templateRoot, serverFilePath.filePath, {
 			recursive: true,
 		});
+	}
+
+	async updateHTML(urlPath: SitePagePath, newTitle: string) {
+		await this.pages[urlPath].update(newTitle);
+	}
+
+	setPagePathAlias(urlPath: SitePagePath, alias: string) {
+		this.pagePaths[urlPath] = alias;
 	}
 
 	getCSS(fileName: CSSFile) {
