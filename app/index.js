@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { Server } from 'socket.io';
+import { instrument } from '@socket.io/admin-ui';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,7 +19,8 @@ console.log('Options: ' + JSON.stringify({ PORT, NODE_ENV }));
 
 const [_nodePath, _scriptPath, ...args] = process.argv;
 
-const [watchPath] = args;
+const [_watchPath] = args;
+const watchPath = path.join(_watchPath);
 
 const publicPath = path.join(__dirname, '../public');
 const server = http.createServer((req, res) => {
@@ -44,6 +46,7 @@ const server = http.createServer((req, res) => {
 		showError();
 	}
 });
+
 const io = new Server(server, {
 	cors: {
 		origin: '*',
@@ -52,12 +55,28 @@ const io = new Server(server, {
 
 let lastJsUpdate = Date.now();
 io.on('connection', (client) => {
-	console.log(`connect\t\tid: ${client.id}`);
+	const { origin: clientOrigin, pathname, assets } = client.handshake.query;
+
+	// TODO(bret): What about .php? or other files?
+	const paths = [
+		[watchPath, pathname + '.html'],
+		[watchPath, pathname, 'index.html'],
+		[watchPath, pathname],
+	].map((u) => path.join(...u));
+
+	const found = paths.find((p) => fs.existsSync(p) && fs.statSync(p).isFile());
+	if (!found) throw new Error('???');
+
+	const room = path.relative(watchPath, found);
+	client.join(room);
+	assets.split(',').forEach((file) => client.join(path.join(file)));
+
+	console.log(`connect\t\tid: ${client.id}\troom: ${room}`);
 
 	client.emit('reload-self', { lastJsUpdate });
 
 	client.on('disconnect', () => {
-		console.log(`disconnect\tid: ${client.id}`);
+		console.log(`disconnect\tid: ${client.id}\troom: ${room}`);
 	});
 });
 
@@ -102,7 +121,7 @@ const sendUpdate = (eventType, fileName, contents) => {
 	const ext = path.extname(fileName);
 	const event = fileToEventMap[ext];
 	if (!event) return;
-	io.sockets.emit(event, { fileName, contents });
+	io.sockets.to(path.join(fileName)).emit(event, { fileName, contents });
 	console.log(
 		`[${event}] ${fileName} update emitted (eventType: ${eventType})`,
 	);
