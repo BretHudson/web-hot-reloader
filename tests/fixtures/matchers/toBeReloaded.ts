@@ -37,11 +37,22 @@ export const expect = baseExpect.extend({
 				pass: false,
 			};
 		}
-		try {
-			const handle = await locator.elementHandle();
 
+		let handle: Awaited<ReturnType<typeof locator.elementHandle>>;
+		try {
+			handle = await locator.elementHandle();
+		} catch (e) {
+			return {
+				message: () => 'could not retrieve element handle',
+				pass: false,
+			};
+		}
+
+		try {
 			const good = await page.waitForFunction(
-				({ el, attr }) => el?.getAttribute(attr)?.includes('?'),
+				({ el, attr }) => {
+					return el?.getAttribute(attr)?.includes('?');
+				},
 				{ el: handle, attr },
 			);
 
@@ -50,6 +61,7 @@ export const expect = baseExpect.extend({
 				pass: Boolean(good),
 			};
 		} catch (e) {
+			console.log(e);
 			return {
 				message: () => 'element has not been reloaded via WHR',
 				pass: false,

@@ -93,22 +93,29 @@ const reloadSelf = () => {
 };
 
 let lastJsUpdate = null;
-const initWebSocket = () => {
-	const assets = [
-		['link', 'href'],
-		['img', 'src'],
-	].flatMap(([tag, attr]) => {
-		return [...document.querySelectorAll(`${tag}[${attr}]`)].map((e) => {
-			const urlPath = e[attr].replace(window.location.origin + '/', '');
-			return removeAllQueryStrings(urlPath);
+const initWebSocket = async () => {
+	const observer = new PerformanceObserver((list) => {
+		const entries = list.getEntries();
+		entries.forEach((entry) => {
+			switch (entry.initiatorType) {
+				case 'link':
+				case 'other':
+				case 'img':
+					break;
+				default:
+					return;
+			}
+			const room = entry.name.replace(window.location.origin + '/', '');
+			const data = JSON.stringify({ room });
+			socket.emit('watch-asset', data);
 		});
 	});
+	observer.observe({ type: 'resource', buffered: true });
 
 	const socket = io(origin, {
 		query: {
 			origin: window.location.origin,
-			pathname: window.location.pathname,
-			assets,
+			pathName: window.location.pathname,
 		},
 	});
 	window['__whr-socket'] = socket;
@@ -119,6 +126,7 @@ const initWebSocket = () => {
 
 	socket.on('css-update', (data) => {
 		const { fileName } = data;
+		console.log('css-update', fileName);
 		updateCSS(fileName);
 	});
 
@@ -129,6 +137,7 @@ const initWebSocket = () => {
 
 	socket.on('image-update', (data) => {
 		const { fileName } = data;
+		console.log('image-update', fileName);
 		updateImage(fileName);
 	});
 
@@ -143,6 +152,8 @@ const initWebSocket = () => {
 
 	socket.on('disconnect', () => {
 		log('Socket disconnected');
+
+		observer.disconnect();
 	});
 
 	log('Socket initialized');
@@ -151,7 +162,11 @@ const initWebSocket = () => {
 const init = () => {
 	const scriptSrc = `${origin}/socket.io/socket.io.js`;
 	const scriptElem = document.createElement('script');
-	scriptElem.onload = () => initWebSocket();
+	scriptElem.onload = () => {
+		window.requestAnimationFrame(async () => {
+			await initWebSocket();
+		});
+	};
 	scriptElem.src = scriptSrc;
 	document.head.append(scriptElem);
 

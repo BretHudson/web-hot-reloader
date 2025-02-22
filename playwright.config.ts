@@ -1,6 +1,12 @@
 import path from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
-import { rootPath, SERVER_PORT, siteRootDir, WHR_PORT } from './tests/shared';
+import {
+	rootPath,
+	SERVER_PORT,
+	siteRootDir,
+	tempDir,
+	WHR_PORT,
+} from './tests/shared';
 
 /**
  * Read environment variables from file.
@@ -28,7 +34,7 @@ export default defineConfig({
 	reporter: 'html',
 	use: {
 		/* Base URL to use in actions like `await page.goto('/')`. */
-		// baseURL: 'http://127.0.0.1:3000',
+		baseURL: `http://localhost:${SERVER_PORT}/${tempDir}/`,
 
 		trace: 'on-first-retry',
 	},
@@ -42,7 +48,12 @@ export default defineConfig({
 		},
 		{
 			name: 'chromium',
-			use: { ...devices['Desktop Chrome'] },
+			use: {
+				...devices['Desktop Chrome'],
+				launchOptions: {
+					args: ['--headless=new'],
+				},
+			},
 			dependencies,
 		},
 		// {

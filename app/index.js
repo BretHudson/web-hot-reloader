@@ -63,25 +63,30 @@ instrument(io, { auth: false });
 
 let lastJsUpdate = Date.now();
 io.on('connection', (client) => {
-	const { origin: clientOrigin, pathname, assets } = client.handshake.query;
+	const { origin: clientOrigin, pathName, assets } = client.handshake.query;
 
 	// TODO(bret): What about .php? or other files?
 	const paths = [
-		[watchPath, pathname + '.html'],
-		[watchPath, pathname, 'index.html'],
-		[watchPath, pathname],
+		[watchPath, pathName + '.html'],
+		[watchPath, pathName, 'index.html'],
+		[watchPath, pathName],
 	].map((u) => path.join(...u));
 
 	const found = paths.find((p) => fs.existsSync(p) && fs.statSync(p).isFile());
-	if (!found) throw new Error('???');
+	if (!found) throw new Error('???', pathName);
 
 	const room = path.relative(watchPath, found);
 	client.join(room);
-	assets.split(',').forEach((file) => client.join(path.join(file)));
 
 	console.log(`connect\t\tid: ${client.id}\troom: ${room}`);
 
 	client.emit('reload-self', { lastJsUpdate });
+
+	client.on('watch-asset', (json) => {
+		const data = JSON.parse(json);
+		const room = path.join(data.room);
+		client.join(room);
+	});
 
 	client.on('disconnect', () => {
 		console.log(`disconnect\tid: ${client.id}\troom: ${room}`);
@@ -129,9 +134,10 @@ const sendUpdate = (eventType, fileName, contents) => {
 	const ext = path.extname(fileName);
 	const event = fileToEventMap[ext];
 	if (!event) return;
-	io.sockets.to(path.join(fileName)).emit(event, { fileName, contents });
+	const room = path.join(fileName);
+	io.sockets.to(room).emit(event, { fileName, contents });
 	console.log(
-		`[${event}] ${fileName} update emitted (eventType: ${eventType})`,
+		`[${event}] ${fileName} update emitted to room "${room}" (eventType: ${eventType})`,
 	);
 };
 

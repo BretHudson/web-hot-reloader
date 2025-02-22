@@ -210,7 +210,8 @@ export class Site {
 		let url: string | undefined = this.pagePaths[page];
 		if (url === undefined) throw new Error('ruh roh');
 		this.currentPage = page;
-		return this.page.goto(this.serverFilePath.url + url);
+		const path = this.serverFilePath.url + url;
+		return this.page.goto(path);
 	}
 
 	async replaceImage(src: string) {
