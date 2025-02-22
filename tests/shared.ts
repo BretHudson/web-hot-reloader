@@ -25,7 +25,7 @@ export type SitePagePath = keyof SitePagePathConfig;
 export type CSSFile = 'styles.css' | 'styles2.css' | 'styles3.css';
 
 export interface PageData {
-	urlPath: string;
+	urlPath: SitePagePath;
 	html: string;
 	defaultTitle: string;
 }
