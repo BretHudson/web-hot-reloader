@@ -3,7 +3,7 @@ import { describeSerial } from './helpers/describe-serial';
 
 describeSerial('edit CSS & image then HTML', () => {
 	test.beforeAll(async ({ site }) => {
-		site.goto('index.html');
+		await site.goto('index.html');
 	});
 
 	test("ensure HTML reload doesn't override reloaded assets", async ({
