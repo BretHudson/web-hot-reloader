@@ -1,0 +1,34 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "[tests] serve",
+			"type": "shell",
+			"command": "npm run test:serve -- tests/site/ -- -p 3030",
+			"presentation": {
+				"reveal": "always",
+				"panel": "new"
+			},
+			"runOptions": {
+				"runOn": "folderOpen"
+			}
+		},
+		{
+			"label": "[tests] WHR",
+			"type": "shell",
+			"command": "node app/index.js ./tests/site",
+			"presentation": {
+				"reveal": "always",
+				"panel": "new"
+			},
+			"runOptions": {
+				"runOn": "folderOpen"
+			},
+			"options": {
+				"env": {
+					"PORT": "3040"
+				}
+			}
+		}
+	]
+}

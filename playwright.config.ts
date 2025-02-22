@@ -19,10 +19,12 @@ const dependencies = [setupServer];
 export default defineConfig({
 	testDir: './tests',
 	/* Run tests in files in parallel */
-	fullyParallel: !process.env.CI,
-	forbidOnly: !!process.env.CI,
+	// fullyParallel: !process.env.CI,
+	fullyParallel: false,
+	workers: 1,
+	// forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 2 : 0,
-	workers: process.env.CI ? 1 : undefined,
+	timeout: 5e3,
 	reporter: 'html',
 	use: {
 		/* Base URL to use in actions like `await page.goto('/')`. */
@@ -30,6 +32,8 @@ export default defineConfig({
 
 		trace: 'on-first-retry',
 	},
+
+	globalSetup: 'tests/pre-global.setup.ts',
 
 	projects: [
 		{

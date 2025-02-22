@@ -61,13 +61,47 @@ io.on('connection', (client) => {
 	});
 });
 
+// pulled from https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Formats/Image_types#image_file_type_details
+const imageExtensions = [
+	// APNG
+	'.apng',
+	// AVIF
+	'.avif',
+	// BMP
+	'.bmp',
+	// GIF
+	'.gif',
+	// ICO
+	'.ico',
+	// JPEG
+	'.jpg',
+	'.jpeg',
+	'.jpe',
+	'.jif',
+	'.jfif',
+	// PNG
+	'.png',
+	// SVG
+	'.svg',
+	// TIFF
+	'.tif',
+	'.tiff',
+	// WebP
+	'.webp',
+];
+
 const fileToEventMap = {
 	'.css': 'css-update',
 	'.html': 'html-update',
+	...Object.fromEntries(imageExtensions.map((e) => [e, 'image-update'])),
 };
+
+const supportedFileExt = Object.keys(fileToEventMap);
+
 const sendUpdate = (eventType, fileName, contents) => {
 	const ext = path.extname(fileName);
 	const event = fileToEventMap[ext];
+	if (!event) return;
 	io.sockets.emit(event, { fileName, contents });
 	console.log(
 		`[${event}] ${fileName} update emitted (eventType: ${eventType})`,
@@ -95,31 +129,42 @@ fs.watchFile(clientJsPath, { interval: 1000 }, () => {
 	});
 });
 
-// TODO(bret): Do not commit recursive!!!
-fs.watch(watchPath, { recursive: true }, async (eventType, fileName) => {
-	if (!fileName) throw new Error('empty fileName?!');
-	if (eventType === 'rename') return;
-
-	fileName = fileName.replaceAll(path.sep, '/');
-
-	const filePath = path.join(watchPath, fileName);
-	const stats = await fs.promises.stat(filePath);
-	if (!stats.isFile()) return;
-
-	switch (path.extname(fileName)) {
-		case '.html': {
-			const contents = await fs.promises.readFile(filePath, 'utf-8');
-			if (haveFileContentsUpdated(filePath, contents) === false) return;
-			sendUpdate(eventType, fileName, contents);
-			break;
-		}
-		case '.css': {
-			const contents = await fs.promises.readFile(filePath, 'utf-8');
-			if (haveFileContentsUpdated(filePath, contents) === false) return;
-			sendUpdate(eventType, fileName, contents);
-			break;
+const retry = async (callback) => {
+	let error;
+	for (let i = 0; i < 5; ++i) {
+		try {
+			await callback();
+			return;
+		} catch (e) {
+			error = e;
+			console.warn('Retrying...');
+			await new Promise((resolve) => setTimeout(resolve, 200));
 		}
 	}
+	throw error;
+};
+
+// TODO(bret): Do not commit recursive!!!
+fs.watch(watchPath, { recursive: true }, async (eventType, fileName) => {
+	if (!fileName) return;
+	if (eventType === 'rename') return;
+
+	if (!supportedFileExt.includes(path.extname(fileName))) return;
+
+	const filePath = path.join(watchPath, fileName);
+	if (!fs.existsSync(filePath)) return;
+
+	await retry(async () => {
+		const stats = await fs.promises.stat(filePath);
+		if (!stats.isFile()) return;
+	});
+
+	await retry(async () => {
+		fileName = fileName.replaceAll(path.sep, '/');
+		const contents = await fs.promises.readFile(filePath, 'utf-8');
+		if (haveFileContentsUpdated(filePath, contents) === false) return;
+		sendUpdate(eventType, fileName, contents);
+	});
 });
 const shutdown = () => server.close(() => process.exit(0));
 

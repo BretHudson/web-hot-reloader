@@ -9,8 +9,10 @@ const log = console.log.bind(this, '[WHR]');
 const warn = console.warn.bind(this, '[WHR]');
 const error = console.error.bind(this, '[WHR]');
 
+// TODO(bret): Ensure any query params on the src/href attributes are preserved
+// NOTE(bret): It will always be /?_whr=[..]$/ or /&_whr=[..]$/
 const queryKey = '_whr';
-const getCacheBust = () => `?${queryKey}=${Date.now().toString(36)}`;
+const getCacheBust = () => `${queryKey}=${Date.now().toString(36)}`;
 
 let self = document.getElementById(SCRIPT_ID);
 window.addEventListener('DOMContentLoaded', () => {
@@ -18,27 +20,35 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 const getOrigin = () => self.getAttribute('data-origin');
 
-const updateCSS = (fileName) => {
+const removeAllQueryStrings = (url) => url.split('?')[0];
+const removeCacheBust = (url) => removeAllQueryStrings(url);
+const addCacheBust = (url) => removeCacheBust(url) + '?' + getCacheBust();
+
+/// NOTE(bret): there is a difference between accessing via square brackets & getAttribute()
+// For example, given <img src="logo.svg" />
+// - link.src/link['src'] will return the computed property, ie "http://localhost/logo.svg"
+// - link.getAttribute('src') will return "logo.svg"
+
+const updateElems = (fileName, query, attr) => {
 	// TODO(bret); this check isn't robust
-	const cssElems = [...document.querySelectorAll(`link`)].filter((link) => {
-		return link.href.split('?')[0].endsWith(fileName);
+	const elems = [...document.querySelectorAll(query)].filter((link) => {
+		return removeAllQueryStrings(link[attr]).endsWith(fileName);
 	});
 
-	const [cssElem] = cssElems;
-
-	const newCSS = document.createElement('link');
-	newCSS.rel = cssElem.rel;
-	newCSS.integrity = cssElem.integrity;
-	newCSS.type = cssElem.type;
-	newCSS.href = cssElem.href.split('?')[0] + getCacheBust();
-	newCSS.onload = () => {
-		[...cssElems].forEach((cssElem) => cssElem.remove());
-	};
-	document.head.appendChild(newCSS);
+	elems.forEach((elem) => {
+		const value = addCacheBust(elem.getAttribute(attr));
+		elem.setAttribute(attr, value);
+	});
 };
 
-const updateHTML = (fileName, contents) => {
+const updateCSS = (fileName) => {
+	updateElems(fileName, `link`, 'href');
+};
+
+const updateHTML = (fileName, _contents) => {
 	const names = ['.html', 'index.html', '/index.html'];
+
+	let contents = _contents;
 
 	// TODO(bret): Revisit this
 	const targetPath = window.location.origin + '/' + fileName;
@@ -47,29 +57,23 @@ const updateHTML = (fileName, contents) => {
 		return cur === targetPath || cur === targetPath.replace('index.html', '');
 	});
 
-	if (!valid) return;
+	if (!valid) {
+		log('do not update');
+		return;
+	}
 
-	const stylesheets = [
-		...document.querySelectorAll('link[rel="stylesheet"]'),
-	].map(({ href }) => href.replace(_origin + '/', ''));
-	stylesheets
-		.filter((href) => href.includes(queryKey))
-		.map((href) => {
-			// TODO(bret): Make this robust
-			// href.replace(origin, '').replace(_origin, '')
-			return href.replace(window.location.href, '');
-		})
-		.forEach((href) => {
-			// TODO(bret): There's gotta be a better way to do this
-			// we really need to construct the full URL so we can compare them, unfortuately. '/css/reset.css' vs './reset.css' vs '../reset.css', etc
-			// TODO(bret): How to handle ./ ?
-			contents = contents.replace(
-				'"' + href.split('?')[0] + '"',
-				'"' + href + '"',
-			);
-		});
-
+	warn('updating!');
 	const script = document.getElementById('__web-hot-reloader');
+
+	// TODO(bret): Revisit this - string replacement is highly dependent on how the incoming HTML file is formatted :/
+	['src', 'href'].forEach((attr) => {
+		const elems = [...document.querySelectorAll(`[${attr}*="${queryKey}="]`)];
+		elems.forEach((elem) => {
+			const link = elem.getAttribute(attr);
+			const filePath = removeCacheBust(link);
+			contents = contents.replaceAll(`"${filePath}"`, `"${link}"`);
+		});
+	});
 
 	document.open();
 	document.write(contents);
@@ -79,15 +83,24 @@ const updateHTML = (fileName, contents) => {
 		document.head.append(script);
 };
 
+// TODO(bret): Figure out all the places an image could be used
+const updateImage = (fileName) => {
+	updateElems(fileName, `img`, 'src');
+	updateElems(fileName, `link`, 'href'); // shortcut icon
+
+	// TODO(bret): Gonna need a special flag or something for urls
+	// og:image / etc
+};
+
 const reloadSelf = () => {
-	const fileName = import.meta.url.split('?')[0];
+	const fileName = removeAllQueryStrings(import.meta.url);
 	warn(`Swapped ${fileName}`);
 	const newScript = document.createElement('script');
 	for (const attr of self.attributes) {
 		if (attr.name === 'src') continue;
 		newScript.setAttribute(attr.name, attr.value);
 	}
-	newScript.src = import.meta.url.split('?')[0] + getCacheBust();
+	newScript.src = addCacheBust(fileName);
 	self.after(newScript);
 	self.remove();
 };
@@ -109,6 +122,11 @@ const initWebsocket = () => {
 	socket.on('html-update', (data) => {
 		const { fileName, contents } = data;
 		updateHTML(fileName, contents);
+	});
+
+	socket.on('image-update', (data) => {
+		const { fileName } = data;
+		updateImage(fileName);
 	});
 
 	socket.on('reload-self', (data) => {
