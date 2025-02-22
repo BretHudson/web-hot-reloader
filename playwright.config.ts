@@ -48,12 +48,7 @@ export default defineConfig({
 		},
 		{
 			name: 'chromium',
-			use: {
-				...devices['Desktop Chrome'],
-				launchOptions: {
-					args: ['--headless=new'],
-				},
-			},
+			use: { ...devices['Desktop Chrome'] },
 			dependencies,
 		},
 		// {
