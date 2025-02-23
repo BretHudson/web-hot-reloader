@@ -124,8 +124,8 @@ const imageExtensions = [
 
 const fileToEventMap = {
 	'.html': 'html-update',
-	'.css': 'css-update',
-	...Object.fromEntries(imageExtensions.map((e) => [e, 'image-update'])),
+	'.css': 'asset-update',
+	...Object.fromEntries(imageExtensions.map((e) => [e, 'asset-update'])),
 };
 
 const supportedFileExt = Object.keys(fileToEventMap);
@@ -134,8 +134,6 @@ const sendUpdate = (eventType, fileName, contents) => {
 	const ext = path.extname(fileName);
 	let event = fileToEventMap[ext];
 	if (!event) return;
-	if (event === 'css-update' || event === 'image-update')
-		event = 'asset-update';
 	const room = path.join(fileName);
 	io.sockets.to(room).emit(event, { fileName, contents });
 	console.log(

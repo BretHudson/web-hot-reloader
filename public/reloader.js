@@ -9,10 +9,8 @@ const log = console.log.bind(this, '[WHR]');
 const warn = console.warn.bind(this, '[WHR]');
 const error = console.error.bind(this, '[WHR]');
 
-// TODO(bret): Ensure any query params on the src/href attributes are preserved
 // NOTE(bret): It will always be /?_whr=[..]$/ or /&_whr=[..]$/
 const queryKey = '_whr';
-const getCacheBust = () => `${queryKey}=${Date.now().toString(36)}`;
 
 let self = document.getElementById(SCRIPT_ID);
 window.addEventListener('DOMContentLoaded', () => {
@@ -21,10 +19,19 @@ window.addEventListener('DOMContentLoaded', () => {
 const getOrigin = () => self.getAttribute('data-origin');
 
 const removeAllQueryStrings = (url) => url.split('?')[0];
-const removeCacheBust = (url) => removeAllQueryStrings(url);
-const addCacheBust = (url) => removeCacheBust(url) + '?' + getCacheBust();
+const removeCacheBust = (url) => {
+	const [path, queryString] = url.split('?');
+	const params = new URLSearchParams(queryString);
+	params.delete(queryKey);
+	return [path, params].join('?');
+};
+const addCacheBust = (url) => {
+	const [path, queryString] = url.split('?');
+	const params = new URLSearchParams(queryString);
+	params.set(queryKey, Date.now().toString(36));
+	return [path, params].join('?');
+};
 
-// TODO(bret): Make sure this is robust
 const getUrlAttr = (elem) => (elem['src'] ? 'src' : 'href');
 
 /// NOTE(bret): there is a difference between accessing via square brackets & getAttribute()
@@ -34,7 +41,7 @@ const getUrlAttr = (elem) => (elem['src'] ? 'src' : 'href');
 const updateElems = (fileName) => {
 	const elems = [...document.querySelectorAll('[href],[src]')].filter(
 		(link) => {
-			const attr = link['src'] ? 'src' : 'href';
+			const attr = getUrlAttr(link);
 			if (!link.getAttribute(attr)) return;
 			// TODO(bret): this check isn't robust, esp once we add srcset support (and '../' could screw it up!)
 			return removeAllQueryStrings(link[attr]).endsWith(fileName);
@@ -42,7 +49,7 @@ const updateElems = (fileName) => {
 	);
 
 	elems.forEach((elem) => {
-		const attr = elem.getAttribute('src') ? 'src' : 'href';
+		const attr = getUrlAttr(elem);
 		const value = addCacheBust(elem.getAttribute(attr));
 		elem.setAttribute(attr, value);
 		log(`Reloaded "${removeCacheBust(value)}"`);
