@@ -24,26 +24,32 @@ const removeAllQueryStrings = (url) => url.split('?')[0];
 const removeCacheBust = (url) => removeAllQueryStrings(url);
 const addCacheBust = (url) => removeCacheBust(url) + '?' + getCacheBust();
 
+// TODO(bret): Make sure this is robust
+const getUrlAttr = (elem) => (elem['src'] ? 'src' : 'href');
+
 /// NOTE(bret): there is a difference between accessing via square brackets & getAttribute()
 // For example, given <img src="logo.svg" />
 // - link.src/link['src'] will return the computed property, ie "http://localhost/logo.svg"
 // - link.getAttribute('src') will return "logo.svg"
-
-const updateElems = (fileName, query, attr) => {
-	// TODO(bret); this check isn't robust
-	const elems = [...document.querySelectorAll(query)].filter((link) => {
-		return removeAllQueryStrings(link[attr]).endsWith(fileName);
-	});
+const updateElems = (fileName) => {
+	const elems = [...document.querySelectorAll('[href],[src]')].filter(
+		(link) => {
+			const attr = link['src'] ? 'src' : 'href';
+			if (!link.getAttribute(attr)) return;
+			// TODO(bret): this check isn't robust, esp once we add srcset support (and '../' could screw it up!)
+			return removeAllQueryStrings(link[attr]).endsWith(fileName);
+		},
+	);
 
 	elems.forEach((elem) => {
+		const attr = elem.getAttribute('src') ? 'src' : 'href';
 		const value = addCacheBust(elem.getAttribute(attr));
 		elem.setAttribute(attr, value);
+		log(`Reloaded "${removeCacheBust(value)}"`);
 	});
 };
 
-const updateCSS = (fileName) => {
-	updateElems(fileName, `link`, 'href');
-};
+const updateAsset = updateElems;
 
 const updateHTML = (_contents) => {
 	let contents = _contents;
@@ -68,15 +74,6 @@ const updateHTML = (_contents) => {
 	document.head.append(script);
 
 	log('reloaded page');
-};
-
-// TODO(bret): Figure out all the places an image could be used
-const updateImage = (fileName) => {
-	updateElems(fileName, `img`, 'src');
-	updateElems(fileName, `link`, 'href'); // shortcut icon
-
-	// TODO(bret): Gonna need a special flag or something for urls
-	// og:image / etc
 };
 
 const reloadSelf = () => {
@@ -124,21 +121,14 @@ const initWebSocket = async () => {
 		log('Socket connected');
 	});
 
-	socket.on('css-update', (data) => {
-		const { fileName } = data;
-		console.log('css-update', fileName);
-		updateCSS(fileName);
-	});
-
 	socket.on('html-update', (data) => {
 		const { contents } = data;
 		updateHTML(contents);
 	});
 
-	socket.on('image-update', (data) => {
+	socket.on('asset-update', (data) => {
 		const { fileName } = data;
-		console.log('image-update', fileName);
-		updateImage(fileName);
+		updateAsset(fileName);
 	});
 
 	socket.on('reload-self', (data) => {
