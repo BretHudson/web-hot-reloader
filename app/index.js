@@ -4,6 +4,7 @@ import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { default as ignore } from 'ignore';
 import { Server } from 'socket.io';
 import { instrument } from '@socket.io/admin-ui';
 
@@ -21,6 +22,93 @@ const [_nodePath, _scriptPath, ...args] = process.argv;
 
 const [_watchPath] = args;
 const watchPath = path.join(_watchPath);
+
+const pathsToIgnore = [
+	'.git',
+	'.log',
+	'.nyc_output',
+	'.sass-cache',
+	'.yarn',
+	'bower_components',
+	'coverage',
+	'node_modules',
+];
+
+const getKeyFromPath = (curPath) => {
+	const dirPath = path.join(watchPath, path.relative(watchPath, curPath));
+	return path.relative(watchPath, dirPath);
+};
+
+const dirIgnoreMap = new Map();
+const dirGitignoreMap = new Map();
+const addGitignore = (curPath) => {
+	const dirPath = path.join(watchPath, path.relative(watchPath, curPath));
+	const filePath = path.join(dirPath, '.gitignore');
+
+	const key = getKeyFromPath(dirPath);
+	if (dirIgnoreMap.has(key)) return;
+
+	let content = null;
+	const ig = ignore();
+	if (fs.existsSync(filePath)) {
+		content = [...pathsToIgnore, fs.readFileSync(filePath, 'utf-8')].join('\n');
+		ig.add(content);
+	}
+	dirIgnoreMap.set(key, ig);
+	dirGitignoreMap.set(key, content);
+	return Boolean(content);
+};
+
+const ignores = (_filePath) => {
+	const filePath = path.join(watchPath, path.relative(watchPath, _filePath));
+
+	const dirPath = path.dirname(filePath);
+	const baseName = path.basename(filePath);
+	const key = getKeyFromPath(dirPath + path.sep);
+
+	if (key === '') {
+		const ig = dirIgnoreMap.get(key);
+		const result = ig?.ignores(baseName) ?? false;
+		return result;
+	} else {
+		const dirs = [''].concat(key.split(path.sep));
+		for (let d = 0; d < dirs.length - 1; ++d) {
+			const ig = dirIgnoreMap.get(dirs[d]);
+			if (ig?.ignores(dirs[d + 1])) return true;
+		}
+		const ig = dirIgnoreMap.get(dirs.at(-1));
+		if (ig?.ignores(baseName)) return true;
+	}
+
+	return false;
+};
+
+const scanForGitignore = (dir) => {
+	const dirPath = path.join(watchPath, dir);
+
+	// scan for .gitignore first!
+	if (addGitignore(dirPath)) {
+		console.log(
+			`\tParsed "${path.join(
+				path.relative(watchPath, dirPath),
+				'.gitignore',
+			)}"`,
+		);
+	}
+
+	const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+	for (const entry of entries) {
+		if (entry.name === '.gitignore') continue;
+
+		const parentPath = path.relative(watchPath, entry.parentPath);
+		const filePath = path.join(parentPath, entry.name);
+		if (ignores(path.join(watchPath, filePath))) continue;
+
+		if (!entry.isFile()) scanForGitignore(filePath);
+	}
+};
+
+scanForGitignore('');
 
 const publicPath = path.join(__dirname, '../public');
 const server = http.createServer((req, res) => {
@@ -63,7 +151,7 @@ instrument(io, { auth: false });
 
 let lastJsUpdate = Date.now();
 io.on('connection', (client) => {
-	const { origin: clientOrigin, pathName, assets } = client.handshake.query;
+	const { origin: clientOrigin, pathName } = client.handshake.query;
 
 	// TODO(bret): What about .php? or other files?
 	const paths = [
@@ -177,7 +265,6 @@ const retry = async (callback) => {
 	throw error;
 };
 
-// TODO(bret): Do not commit recursive!!!
 fs.watch(watchPath, { recursive: true }, async (eventType, fileName) => {
 	if (!fileName) return;
 	if (eventType === 'rename') return;
@@ -185,6 +272,8 @@ fs.watch(watchPath, { recursive: true }, async (eventType, fileName) => {
 	if (!supportedFileExt.includes(path.extname(fileName))) return;
 
 	const filePath = path.join(watchPath, fileName);
+	if (ignores(filePath)) return;
+
 	if (!fs.existsSync(filePath)) return;
 
 	await retry(async () => {
