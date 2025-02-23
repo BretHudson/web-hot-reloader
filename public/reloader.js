@@ -23,7 +23,7 @@ const removeCacheBust = (url) => {
 	const [path, queryString] = url.split('?');
 	const params = new URLSearchParams(queryString);
 	params.delete(queryKey);
-	return [path, params].join('?');
+	return [path, params].join('?').replace(/\?$/g, '');
 };
 const addCacheBust = (url) => {
 	const [path, queryString] = url.split('?');
@@ -39,14 +39,13 @@ const getUrlAttr = (elem) => (elem['src'] ? 'src' : 'href');
 // - link.src/link['src'] will return the computed property, ie "http://localhost/logo.svg"
 // - link.getAttribute('src') will return "logo.svg"
 const updateElems = (fileName) => {
-	const elems = [...document.querySelectorAll('[href],[src]')].filter(
-		(link) => {
-			const attr = getUrlAttr(link);
-			if (!link.getAttribute(attr)) return;
-			// TODO(bret): this check isn't robust, esp once we add srcset support (and '../' could screw it up!)
-			return removeAllQueryStrings(link[attr]).endsWith(fileName);
-		},
-	);
+	const query = ':not(a):where([href],[src])';
+	const elems = [...document.querySelectorAll(query)].filter((link) => {
+		const attr = getUrlAttr(link);
+		if (!link.getAttribute(attr)) return;
+		// TODO(bret): this check isn't robust, esp once we add srcset support (and '../' could screw it up!)
+		return removeAllQueryStrings(link[attr]).endsWith(fileName);
+	});
 
 	elems.forEach((elem) => {
 		const attr = getUrlAttr(elem);
