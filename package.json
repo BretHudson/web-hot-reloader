@@ -12,6 +12,7 @@
 	"license": "ISC",
 	"dependencies": {
 		"@socket.io/admin-ui": "^0.5.1",
+		"ignore": "^7.0.3",
 		"socket.io": "4.8.1"
 	},
 	"devDependencies": {
