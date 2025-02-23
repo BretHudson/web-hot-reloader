@@ -23,6 +23,8 @@ Prerequisites:
 - [Node.js](https://nodejs.org/en/download)
 - Clone the repo
 
+Ensure `node_modules` are installed with `pnpm i` (`npm i` will also work, but will generate a `package-lock.json` file)
+
 ### Running the program
 
 To initialize the hot reloader for this project, we can type the following:
