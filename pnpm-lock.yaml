@@ -8,9 +8,6 @@ importers:
 
   .:
     dependencies:
-      '@socket.io/admin-ui':
-        specifier: ^0.5.1
-        version: 0.5.1(socket.io@4.8.1)
       ignore:
         specifier: ^7.0.3
         version: 7.0.3
@@ -21,6 +18,9 @@ importers:
       '@playwright/test':
         specifier: ^1.50.1
         version: 1.50.1
+      '@socket.io/admin-ui':
+        specifier: ^0.5.1
+        version: 0.5.1(socket.io@4.8.1)
       '@types/node':
         specifier: ^22.13.4
         version: 22.13.5
