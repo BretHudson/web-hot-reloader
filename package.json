@@ -5,7 +5,6 @@
 	"license": "MIT",
 	"main": "app/index.js",
 	"scripts": {
-		"preinstall": "npx only-allow pnpm",
 		"test:serve": "serve",
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
