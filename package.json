@@ -1,7 +1,7 @@
 {
 	"name": "web-hot-loader",
 	"version": "0.3.1",
-	"description": "A CSS hot loader for the browser",
+	"description": "A lightweight HTML & CSS Hot Reloader, free of build tools & post-processors",
 	"main": "app/index.js",
 	"scripts": {
 		"test:serve": "serve",
@@ -9,7 +9,7 @@
 	},
 	"type": "module",
 	"author": "Bret Hudson",
-	"license": "ISC",
+	"license": "MIT",
 	"dependencies": {
 		"@socket.io/admin-ui": "^0.5.1",
 		"ignore": "^7.0.3",
