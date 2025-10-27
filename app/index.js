@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -21,7 +23,7 @@ console.log('Options: ' + JSON.stringify({ PORT, NODE_ENV }));
 const [_nodePath, _scriptPath, ...args] = process.argv;
 
 const [_watchPath] = args;
-const watchPath = path.join(_watchPath);
+const watchPath = path.join(_watchPath ?? '.');
 
 const pathsToIgnore = [
 	'.git',
