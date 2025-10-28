@@ -4,7 +4,7 @@
 		{
 			"label": "[tests] serve",
 			"type": "shell",
-			"command": "npm run test:serve -- tests/site/ -- -p 3030",
+			"command": "npm run test:serve -- tests/site/ -p 3030",
 			"presentation": {
 				"reveal": "always",
 				"panel": "new"
