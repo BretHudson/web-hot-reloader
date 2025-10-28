@@ -5,11 +5,12 @@
 	"license": "MIT",
 	"main": "app/index.js",
 	"scripts": {
+		"dev": "node app/server.js",
 		"test:serve": "serve",
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},
 	"bin": {
-		"web-hot-reloader": "./app/index.js"
+		"web-hot-reloader": "./app/server.js"
 	},
 	"type": "module",
 	"author": {
