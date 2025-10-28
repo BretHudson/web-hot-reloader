@@ -7,7 +7,7 @@ import { default as ignore } from 'ignore';
 import { instrument } from '@socket.io/admin-ui';
 import { Server } from 'socket.io';
 
-import { PORT, NODE_ENV, imageExtensions } from './constants.js';
+import { DEFAULT_PORT, PORT, NODE_ENV, imageExtensions } from './constants.js';
 import { getFileMeta } from './util.js';
 
 const { __dirname } = getFileMeta(import.meta);

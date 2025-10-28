@@ -1,4 +1,4 @@
-const DEFAULT_PORT = 3008;
+export const DEFAULT_PORT = 3008;
 
 export const { PORT = DEFAULT_PORT, NODE_ENV = 'production' } = process.env;
 
