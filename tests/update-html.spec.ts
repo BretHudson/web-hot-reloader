@@ -19,7 +19,8 @@ pathWithAliases.forEach(([urlPath, aliases]) => {
 		aliases.forEach((alias) => {
 			const aliasTitle = `"/${alias}"`;
 			describeSerial(`as ${aliasTitle}`, () => {
-				const changes = (updatePath) => (urlPath === updatePath ? '' : 'not ');
+				const changes = (updatePath: string) =>
+					urlPath === updatePath ? '' : 'not ';
 
 				test(`visit ${aliasTitle}, expect default title`, async ({ site }) => {
 					site.setPagePathAlias(urlPath, alias);
