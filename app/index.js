@@ -8,9 +8,9 @@ import { instrument } from '@socket.io/admin-ui';
 import { Server } from 'socket.io';
 
 import { DEFAULT_PORT, PORT, NODE_ENV, imageExtensions } from './constants.js';
-import { getFileMeta } from './util.js';
+import { getDirname } from './util.js';
 
-const { __dirname } = getFileMeta(import.meta);
+const __dirname = getDirname(import.meta);
 
 export const watchForFileChanges = (options) => {
 	console.log('Starting Web Hot Reloader');
