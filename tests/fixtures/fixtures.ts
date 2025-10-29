@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { test as baseTest, Browser, mergeExpects } from '@playwright/test';
+import { test as baseTest, type Browser, mergeExpects } from '@playwright/test';
 
 import { expect as toBeReloaded } from './matchers/toBeReloaded';
 import { expect as toHavePageTitle } from './matchers/toHavePageTitle';
@@ -13,7 +13,7 @@ import {
 	pagePaths,
 	type PageData,
 	type GlobalData,
-	SitePagePath,
+	type SitePagePath,
 } from '../shared';
 
 import {
